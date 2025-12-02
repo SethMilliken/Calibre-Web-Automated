@@ -1,0 +1,649 @@
+/* Variables {{{ */
+@property --color-black {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: black;
+}
+@property --color-white {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: white;
+}
+@property --color-red {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: #f30;
+}
+@property --color-orange {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: #e6ac32;
+}
+@property --color-light-blue {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: #62acce;
+}
+@property --color-gray {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: #444;
+}
+@property --color-light-gray {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: #ccc;
+}
+@property --color-gray-blue {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: #23527c;
+}
+@property --color-blue-gray {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: #337ab7;
+}
+
+@property --theme-color {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: var(--color-light-blue);
+}
+@property --secondary-color {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: var(--color-orange);
+}
+@property --tertiary-color {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: var(--color-gray);
+}
+@property --hover-color {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: var(--color-white);
+}
+@property --caution-color {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: var(--color-red);
+}
+/* }}} */
+
+/* Fonts {{{ */
+:root {
+    --theme-color: var(--color-blue-gray);
+    --theme-hover-color: var(--color-gray-blue);
+    --secondary-color: var(--color-orange);
+    --tertiary-color: var(--color-gray);
+
+    --color-primary: var(--color-blue-gray);
+    --color-secondary-hover: var(--color-gray-blue);
+    --color-secondary: var(--color-orange);
+    --color-background: var(--color-gray);
+
+    --font-base: "Caecilia LT Std", "Open Sans Regular", "Helvetica Neue", "Helvetica", "Arial", sans-serif;
+    --font-cursive: "Caecilia LT Std", "Ubuntu Mono", "Grand Hotel", cursive;
+    --font-mono: "Ubuntu Mono", "Courier New", serif;
+}
+/* }}} */
+
+/* Cover-Only Mode {{{ */
+/* WIP */
+@media screen and (min-width: 1500px) {
+  .meta {
+    display: none;
+  }
+
+  div.row > div.book {
+    all: revert;
+    max-height: 75em !important;
+    margin: 0 0.25em;
+    border: 1px solid var(--tertiary-color);
+  }
+
+  #books .cover img {
+    width: auto !important;
+    height: 100% !important;
+    object-fit: cover;
+  }
+
+  a.book-cover-link > span.img {
+    display: inline-flex;
+    width: 100%;
+  }
+
+  div.book img {
+    width: unset;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .display-flex {
+    display: grid;
+  }
+
+}
+/* }}} */
+
+/* Large Screen {{{ */
+/* If there is enough room, put the cover next to the form widgets or details in
+ * a two column layout.*/
+@media screen and (min-width: 1200px) {
+    /* Place cover next to widgets */
+    .single .row,
+    .editbook .col-sm-10 {
+      display: flex !important;
+      flex-wrap: wrap !important;
+    }
+
+    /* Give cover more room, but don't let it extend beyond bounds of screen. */
+    .cover,
+    .editcover-book-section,
+    .row .col-sm-3 {
+      width: 100% !important;
+    }
+
+    /* Remove spacing and border */
+    /* .book-meta .more-stuff { */
+    /*   all: revert; */
+    /* } */
+
+    .single #title {
+      font-size: 2.5em;
+    }
+
+    /* .book-meta .btn-toolbar > h2 { */
+    /*   max-width: unset !important; */
+    /* } */
+
+    .comments > * {
+      font-size: 2.0em;
+      line-height: 1.2em;
+    }
+
+    .single .book-meta {
+      margin-left: 0.01em !important;
+      width: 80% !important;
+    }
+
+    .bookinfo .btn {
+      font-size: 1.5em !important;
+    }
+
+    .editbook .col-sm-9,
+    .editbook #book_edit_frm {
+      margin-left: 0.01em !important;
+      width: 80% !important;
+      display: grid;
+      /* TODO: Fix */
+      /* grid-template-rows: repeat(auto-fit, minmax(5em, 1fr)); */
+    }
+
+    /* .editbook-cover-section > .more-stuff, */
+    /* #form-upload-format { */
+    /*   display: block !important; */
+    /* } */
+
+}
+/* }}} */
+
+/* Global Properties {{{ */
+
+body {
+  font-family: var(--font-base) !important;
+  font-weight: 700;
+}
+
+.tooltip.bottom .tooltip-inner {
+  font-family: var(--font-cursive);
+}
+
+body > div.navbar.navbar-default.navbar-static-top > div > div.navbar-header > a,
+.navbar-brand {
+  font-size: 2rem !important;
+  font-weight: 800;
+  width: unset !important;
+  font-style: italic !important;
+  font-family: var(--font-cursive) !important;
+}
+
+div.log {
+  font-family: var(--font-mono);
+  font-size: 16px;
+}
+
+dt,
+label {
+  font-family: var(--font-mono) !important;
+  font-weight: 900 !important;
+}
+
+.btn,
+.create-shelf {
+  font-family: var(--font-mono);
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+/* }}} */
+
+/* List View Properties {{{ */
+
+#books > .cover > a.book-cover-link {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-evenly;
+}
+
+a.book-cover-link > span.img {
+  width: 100%;
+  height: 100%;
+}
+
+.edit-metadata-btn,
+.read-toggle-btn,
+.send-ereader-btn {
+  /* opacity: 1; */
+  left: unset !important;
+  bottom: unset !important;
+  position: unset !important;
+  margin-top: -3em;
+}
+
+.container-fluid .book .meta .author, .container-fluid .book .meta .title,
+.title {
+  font-family: var(--font-base) !important;
+  overflow: unset !important;
+  white-space: normal !important;
+  font-size: 2.25rem !important;
+  font-style: italic;
+  font-weight: 900 !important;
+  line-height: 0.95em !important;
+
+}
+
+#books .cover > a:hover::before,
+div.send-ereader-btn {
+  display: none;
+}
+
+.container-fluid .book .meta .author,
+.author-name {
+  font-family: var(--font-base) !important;
+  overflow: unset !important;
+  font-size: 2rem !important;
+  padding-top: 0.15em;
+}
+
+.series {
+  font-size: 1.75rem !important;
+  line-height: 0.95em !important;
+  padding-top: 0.15em;
+}
+
+h2#title {
+  font-family: var(--font-base) !important;
+  font-style: italic;
+  font-weight: 900;
+}
+/* }}} */
+
+/* Book Details Modal Properties {{{ */
+.single p.author {
+  font-family: var(--font-base) !important;
+  font-size: 1.5em;
+}
+
+/* body.book .author { */
+/*   margin-left: 5em !important; */
+/* } */
+
+.single {
+}
+
+.single .row {
+  display: flex !important;
+  flex-wrap: wrap;
+}
+
+.single .col-sm-9,
+.single .book-meta,
+.single #book_edit_frm {
+  margin-left: 0.1em !important;
+  width: 45% !important;
+  flex-grow: 2;
+}
+
+/* .single .book-meta > .more-stuff { */
+/*   order: -1; */
+/*   display: grid; */
+/* } */
+
+.single div.row > .col-sm-3 {
+  width: unset !important;
+  min-width: unset !important;
+  max-width: unset !important;
+  min-height: unset !important;
+  max-height: unset !important;
+  /* height: 100% !important; */
+  position: static !important;
+  flex-grow: 5;
+}
+
+.single .col-sm-3 > div.cover {
+  width: 100% !important;
+  max-width: unset !important;
+  max-height: unset !important;
+  display: flex;
+}
+
+.single .col-sm-3 > div.cover > img {
+  width: unset !important;
+  max-height: unset !important;
+}
+
+body > div.container-fluid > div > div.col-sm-10 > div > div > div.col-sm-3.col-lg-3.col-xs-5 {
+  height: unset !important;
+  position: unset !important;
+}
+
+.single > .col-sm-12 {
+  order: -1;
+  padding-left: 0em !important;
+  padding-bottom: 0.25em;
+}
+
+/* .single > .book-meta > .btn-toolbar { */
+/*   order: 999; */
+/*   padding-top: 0.25em; */
+/* } */
+
+/* Better fit for description */
+div.comments {
+  max-width: 90%;
+}
+
+.editbook .col-sm-10 {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.editbook .editbook-cover-section {
+  min-width: unset !important;
+  max-width: unset !important;
+  min-height: unset !important;
+  max-height: unset !important;
+  /* height: 100% !important; */
+  position: static !important;
+  flex-grow: 5;
+}
+
+.editbook .editbook-cover-section .cover {
+  width: 100% !important;
+  max-width: unset !important;
+  max-height: unset !important;
+  display: flex;
+}
+
+.editbook .editbook-cover-section div.cover > img {
+  width: unset !important;
+  max-height: unset !important;
+}
+
+.editbook div.col-sm-9[style] {
+  width: unset !important;
+  margin-left: 1em !important;
+}
+
+.editbook div.col-sm-9 {
+  display: grid;
+}
+
+.editbook .content-expanded {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.editbook form#book_edit_frm {
+  display: grid;
+  margin-left: 0.1em !important;
+  width: 40% !important;
+  flex-grow: 2;
+}
+
+/* Always center cover and convert */
+.editbook-cover-section {
+  position: static !important;
+  width: 50% !important;
+  text-align: center;
+}
+
+/* I have no interest in manually uploading and converting */
+/* TODO: put behind toggle button */
+/* .editbook-cover-section > div.more-stuff, */
+/* #form-upload-format { */
+/*   display: none; */
+/* } */
+
+body > div.container-fluid > div.row-fluid > div.col-sm-10 {
+}
+
+.container-fluid img {
+  display: inline !important;
+  width: unset !important;
+  max-width: 100% !important;
+}
+
+.cover {
+  overflow: clip;
+}
+
+/* Hacky way to prevent label from scrolling with text. */
+.book-meta .custom_columns:after {
+/* .book-meta .comments:before { */
+  content: "Description:";
+  font-family: var(--font-mono);
+}
+
+h3#decription {
+  display: none;
+}
+
+/* Description editor */
+/* TODO: calculate based on length of description (and/or available screen height) */
+.tox {
+  position: static !important;
+  height: 800px !important;
+}
+
+/* Allow Book Details modal to expand to accommodate more of the description. */
+.modal-body .comments p {
+  max-height: 90%;
+}
+
+.modal-dialog {
+  width: 90% !important;
+  margin: auto !important;
+}
+
+.modal-body,
+.modal-lg {
+  height: 90% !important;
+}
+
+#get_meta {
+  order: -1;
+  margin-bottom: 0.75em;
+}
+
+#submit {
+  order: 999;
+  margin-top: 0.75em;
+}
+
+dd.meta_description {
+  overflow: scroll !important;
+}
+
+/* Metadata listings */
+#meta-info {
+  height: 95% !important;
+  /* overflow-y: unset !important; */
+  padding-left: 1em;
+}
+
+#have_read_form:after {
+  content: " Completed";
+  font-family: var(--font-mono);
+}
+
+#archived_form:after {
+  content: " Archived";
+  font-family: var(--font-mono);
+}
+
+
+.publishing-date > p, /* no ::first-word pseudo-element */
+.publishers > p > span {
+  font-family: var(--font-mono);
+}
+.publishers > p > span > a {
+  font-family: var(--font-base);
+}
+/* }}} */
+
+/* Only change colors below here */
+/* color, background, background-color, border */
+
+/* Dark Theme {{{ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --tertiary-color: var(--color-light-gray);
+    --hover-color: var(--color-black);
+  }
+
+  .dropdown-menu,
+  .modal-content {
+    border: 1px solid var(--tertiary-color) !important;
+  }
+
+  .well,
+  .container-fluid,
+  .modal-content,
+  .settings-container,
+  .panel-body,
+  .dropdown-menu,
+  select.cwa-settings-select,
+  select.form-control,
+  body {
+    color: var(--color-white);
+    background: var(--color-black);
+    background-color: var(--color-black) !important;
+  }
+
+  .dropdown-menu > li > a,
+  p.cwa-settings-tooltip {
+    color: var(--tertiary-color);
+  }
+
+  .btn-default,
+  .navigation .create-shelf {
+    color: var(--color-white) !important;
+    border: none !important;
+  }
+
+  /* Metadata */
+
+  /* Metadata labels */
+  .media-body > dt,
+  .media-body > dd {
+    color: var(--color-black) !important;
+  }
+
+   #meta-info #book-list .media > .media-body {
+    background-color: var(--color-light-gray) !important;
+   }
+
+  .table-striped > tbody > tr:nth-of-type(2n+1) {
+    background-color: var(--color-gray) !important;
+  }
+
+}
+/* }}} */
+
+/* Colors {{{ */
+a,
+.danger,
+.book-remove,
+.editable-empty,
+.editable-empty:hover {
+  color: var(--theme-color);
+}
+
+.book-remove:hover,
+.user-remove:hover {
+  background: var(--caution-color);
+}
+
+.navbar-brand {
+  color: var(--theme-color) !important;
+}
+
+.btn-default:hover {
+  background: var(--theme-hover-color);
+}
+
+.btn-default a:hover,
+.navigation .create-shelf a:hover {
+  background: var(--theme-hover-color);
+}
+
+.btn-default,
+.navigation .create-shelf a {
+  color: var(--tertiary-color);
+  background: var(--theme-color);
+  border: none !important;
+}
+
+.container-fluid .book .meta .author {
+  color: #999;
+}
+
+.btn-default a,
+body h2,
+.navigation li a,
+.container-fluid .book .meta .title,
+.container-fluid .book .meta .series,
+.rating .glyphicon-star-empty,
+.rating .glyphicon-star.good {
+  color: var(--tertiary-color);
+}
+
+button.close, /* DODO: fix */
+.rating-clear .glyphicon-remove {
+  color: var(--tertiary-color);
+}
+
+input.pill + label {
+  border: 2px solid var(--theme-color);
+  color: var(--theme-color);
+}
+
+input.pill:checked + label {
+  background-color: var(--theme-color);
+  border-color: #fff;
+  color: #fff;
+}
+
+.cwa_stats_value,
+.settings-section-header {
+  color: var(--theme-color);
+}
+
+#book_of > a,
+.series > * {
+  color: var(--secondary-color) !important;
+}
