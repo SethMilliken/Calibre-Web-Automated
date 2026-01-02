@@ -19,6 +19,9 @@ Protocol Specification:
         * GET  /kosync/syncs/progress/<document> - Get reading progress
         * PUT  /kosync/syncs/progress - Update reading progress
         * GET  /kosync - Plugin download page
+        * GET  /kosync/syncs/shelves - Names of shelves
+        * GET  /kosync/syncs/shelf/<shelf> - Contents of shelf
+        * PUT  /kosync/syncs/shelf - Update shelf
 
 Security:
     - All API endpoints use HTTP Basic Authentication
@@ -54,6 +57,9 @@ from ...render_template import render_title_template
 from ..models import KOSyncProgress
 from ..settings import is_koreader_sync_enabled
 
+from cps import shelf as Shelf
+from cps import magic_shelf as MagicShelf
+
 log = logger.create()
 
 # Create the blueprint
@@ -66,6 +72,7 @@ ERROR_UNAUTHORIZED_USER = 2001
 ERROR_USER_EXISTS = 2002
 ERROR_INVALID_FIELDS = 2003
 ERROR_DOCUMENT_FIELD_MISSING = 2004
+ERROR_INVALID_SHELF_NAME = 2005
 
 # Field names (constants for API contract)
 PROGRESS_FIELD = "progress"
@@ -75,10 +82,11 @@ DEVICE_ID_FIELD = "device_id"
 TIMESTAMP_FIELD = "timestamp"
 
 # Validation constants
-MAX_DOCUMENT_LENGTH = 255  # Maximum document identifier length
-MAX_PROGRESS_LENGTH = 255  # Maximum progress string length
-MAX_DEVICE_LENGTH = 100    # Maximum device name length
-MAX_DEVICE_ID_LENGTH = 100 # Maximum device ID length
+MAX_DOCUMENT_LENGTH = 255   # Maximum document identifier length
+MAX_PROGRESS_LENGTH = 255   # Maximum progress string length
+MAX_DEVICE_LENGTH = 100     # Maximum device name length
+MAX_DEVICE_ID_LENGTH = 100  # Maximum device ID length
+MAX_SHELF_NAME_LENGTH = 50  # Maximum shelf name length
 
 
 def _require_kosync_enabled():
@@ -126,6 +134,23 @@ def is_valid_key_field(field: Any, max_length: int = MAX_DOCUMENT_LENGTH) -> boo
         True if field is valid for use as a key
     """
     return is_valid_field(field) and ":" not in field and len(field) <= max_length
+
+
+def is_valid_shelf_name(shelf: Any, max_length: int = MAX_SHELF_NAME_LENGTH) -> bool:
+    """
+    Check if a name is valid as a shelf name.
+
+    Shelf names must be be non-empty strings without colons (reserved for internal use)
+    and within specified length limits.
+
+    Args:
+        shelf: Value to validate
+        max_length: Maximum allowed length
+
+    Returns:
+        True if value is valid for use as a shelf name
+    """
+    return True and ":" not in shelf and len(shelf) <= max_length
 
 
 def authenticate_user() -> Optional[ub.User]:
@@ -791,6 +816,270 @@ def update_progress():
         ub.session.rollback()
         return handle_sync_error(KOSyncError(ERROR_INTERNAL, "Internal server error"))
 
+################################################################################
+# Shelf Sync API Endpoints
+################################################################################
+
+@csrf.exempt
+@kosync.route("/kosync/syncs/shelves", methods=["GET"])
+def get_shelves():
+    """
+    Get identifiers of shelves.
+
+    Returns the identifiers of all available shelves.
+
+    Args:
+        None
+
+    Returns:
+        200: Shelf identifiers
+        400: Error response if validation fails
+        401: Unauthorized if authentication fails
+
+    Response format:
+        {
+            "shelves": [
+                {
+                    "calibre_shelf_id": 42,
+                    "calibre_shelf_title": "Shelf Title"
+                },
+                {
+                    "calibre_shelf_id": 2,
+                    "calibre_shelf_title": "some-title"
+                }
+            ]
+            "timestamp": 1699564800,
+        }
+    """
+    from ... import calibre_db
+
+    log.warn(f"Hit /kosync/syncs/shelves endpoint")
+    try:
+        user = authenticate_user()
+        if not user:
+            raise KOSyncError(ERROR_UNAUTHORIZED_USER, "Unauthorized")
+
+        results = []
+        for shelf in Shelf.get_shelves():
+            log.info(shelf)
+            shelf_result = {
+                "id": shelf.id,
+                "name": shelf.name
+            }
+            results.append(shelf_result)
+
+        results_magic = []
+        for shelf in MagicShelf.get_visible_magic_shelves_for_user(user.id):
+            log.info(shelf)
+            shelf_result = {
+                "id": shelf.id,
+                "name": shelf.name
+            }
+            results_magic.append(shelf_result)
+
+        response_data = {
+            "shelves": results,
+            "magic_shelves": results_magic
+        }
+
+        return create_sync_response(response_data)
+
+    except KOSyncError as e:
+        return handle_sync_error(e)
+    except SQLAlchemyError as e:
+        log.error(f"get_progress: Database error: {str(e)}")
+        return handle_sync_error(KOSyncError(ERROR_INTERNAL, "Database error"))
+    except Exception as e:
+        log.error(f"get_progress: Unexpected error: {str(e)}")
+        return handle_sync_error(KOSyncError(ERROR_INTERNAL, "Internal server error"))
+
+@csrf.exempt
+@kosync.route("/kosync/syncs/shelf/<shelf_name>", methods=["GET"])
+def get_shelf(shelf_name: str):
+    """
+    Get contents of shelf.
+
+    Returns the contents of the the specified shelf name.
+
+    Args:
+        shelf_name: Shelf identifier
+
+    Returns:
+        200: Shelf data
+        400: Error response if validation fails
+        401: Unauthorized if authentication fails
+
+    Response format:
+        {
+            "shelf": "abc123...",
+            "timestamp": 1699564800,
+            "calibre_shelf_id": 42,  # Optional: if matched
+            "calibre_shelf_title": "Shelf Title"  # Optional
+
+            "calibre_shelf_id": 1337,
+            "calibre_shelf_title": shelf,
+            "timestamp": datetime.datetime.now()
+        }
+
+        if not is_valid_shelf_name(shelf):
+            raise KOSyncError(ERROR_INVALID_SHELF_NAME, "Invalid shelf name")
+
+    """
+    from ... import calibre_db
+
+    log.warn(f"Hit /kosync/syncs/shelf/<shelf_name> endpoint with: {shelf_name}")
+    try:
+        user = authenticate_user()
+        if not user:
+            raise KOSyncError(ERROR_UNAUTHORIZED_USER, "Unauthorized")
+
+        books = []
+
+        magic_shelves = MagicShelf.get_visible_magic_shelves_for_user(user.id)
+        for mshelf in magic_shelves:
+            if mshelf.name == shelf_name:
+                log.debug(f"Found match: {mshelf}")
+                res, count = MagicShelf.get_books_for_magic_shelf(mshelf.id, user=user, sort_param="seriesasc", bypass_cache=False)
+                log.debug(f"Using MagicShelf books: {len(res)} {count}")
+                books = res
+
+        if len(books) == 0:
+            books_on_shelf = Shelf.get_shelf(shelf_name)
+            for book_on_shelf in books_on_shelf:
+                book = calibre_db.get_book(book_on_shelf.book_id)
+                books.append(book)
+            log.debug(f"Using Shelf books: {len(books)}")
+
+        results = []
+        for book in books:
+            # log.info(f"title: {book.title}, authors: {book.authors}")
+            authors = []
+            for author in book.authors:
+                author_result = {
+                    "id": author.id,
+                    "name": author.name
+                }
+                authors.append(author_result)
+                log.debug(f"author: {author.name} id: {author.id}")
+            tags = []
+            for tag in book.tags:
+                tags.append(tag.name)
+            book_result = {
+                "title": book.title,
+                "authors": authors,
+                "tags": tags
+            }
+            results.append(book_result)
+
+        # response_data = {
+        #     "shelf": shelf_name,
+        #     "contents": [
+        #         "Developing Web Components with Svelte",
+        #         "Svelte"
+        #     ]
+        # }
+
+        response_data = {
+            "shelf": shelf_name,
+            "books": results
+        }
+
+        return create_sync_response(response_data)
+
+    except KOSyncError as e:
+        return handle_sync_error(e)
+    except SQLAlchemyError as e:
+        log.error(f"get_progress: Database error: {str(e)}")
+        return handle_sync_error(KOSyncError(ERROR_INTERNAL, "Database error"))
+    except Exception as e:
+        log.error(f"get_progress: Unexpected error: {str(e)}")
+        return handle_sync_error(KOSyncError(ERROR_INTERNAL, "Internal server error"))
+
+
+@csrf.exempt
+@kosync.route("/kosync/syncs/shelf", methods=["PUT"])
+def put_shelf():
+    """
+    Update shelf for a KOReader collection.
+
+    This endpoint receives updates from KOReader devices and:
+        1. Validates and stores the sync data in Calibre shelves
+        2. Attempts to sync the Calibre shelf with the collection
+
+    Request body:
+        {
+            "device": "KOReader",      # Required: Device name
+            "device_id": "device123"   # Optional: Device identifier
+            "shelf_name": "favorites"  # Required: Shelf name to update
+            "collection": "..."        # Required: Collection contents
+        }
+
+    Returns:
+        200: Success with document and timestamp
+        400: Validation error
+        401: Unauthorized
+        500: Internal error
+
+    Response format:
+        {
+            "timestamp": 1699564800,
+            "calibre_shelf_id": 42      # Optional: if matched
+        }
+
+    """
+    try:
+        blocked = _require_kosync_enabled()
+        if blocked:
+            return blocked
+
+        user = authenticate_user()
+        if not user:
+            raise KOSyncError(ERROR_UNAUTHORIZED_USER, "Unauthorized")
+
+        data = request.get_json()
+        if not data:
+            raise KOSyncError(ERROR_INVALID_FIELDS, "Invalid request data")
+
+        # Extract and validate required fields
+        collection = data.get("collection")
+        log.debug(f"collection is: {collection}")
+        # if not is_valid_key_field(document):
+        #     raise KOSyncError(ERROR_DOCUMENT_FIELD_MISSING, "Invalid document field")
+
+        shelf_name = data.get("shelf_name")
+        device = data.get("device")
+        device_id = data.get("device_id")
+        log.debug(f"shelf: {shelf_name} device: {device} {device_id}")
+
+        # Validate required fields
+        if not shelf_name or collection is None or not device:
+            raise KOSyncError(ERROR_INVALID_FIELDS, "Missing required fields")
+
+        # Validate field lengths
+        if not is_valid_field(device) or len(device) > MAX_DEVICE_LENGTH:
+            raise KOSyncError(ERROR_INVALID_FIELDS, "Invalid device field")
+        if device_id and len(device_id) > MAX_DEVICE_ID_LENGTH:
+            raise KOSyncError(ERROR_INVALID_FIELDS, "Invalid device_id field")
+
+        timestamp = datetime.now(timezone.utc)
+
+        response_data = {
+            "collection": collection,
+            "timestamp": int(timestamp.timestamp())
+        }
+
+        return create_sync_response(response_data)
+
+    except KOSyncError as e:
+        return handle_sync_error(e)
+    except SQLAlchemyError as e:
+        log.error(f"put_shelf: Database error: {str(e)}")
+        ub.session.rollback()
+        return handle_sync_error(KOSyncError(ERROR_INTERNAL, "Database error"))
+    except Exception as e:
+        log.error(f"put_shelf: Unexpected error: {str(e)}")
+        ub.session.rollback()
+        return handle_sync_error(KOSyncError(ERROR_INTERNAL, "Internal server error"))
 
 ################################################################################
 # Error Handlers
