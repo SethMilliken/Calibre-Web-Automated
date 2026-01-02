@@ -498,6 +498,9 @@ class MagicShelfCache(Base):
         Index('ix_magic_shelf_cache_lookup', 'shelf_id', 'user_id', 'sort_param'),
     )
 
+    def __repr__(self):
+        return '<MagicShelfCache(%d) shelf_id=%d, user_id=%d, total_count=%d>' % (self.id, self.shelf_id, self.user_id, self.total_count)
+
 
 class OpdsShelfExposure(Base):
     __tablename__ = 'opds_shelf_exposure'
