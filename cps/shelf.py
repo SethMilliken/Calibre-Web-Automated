@@ -22,6 +22,25 @@ log = logger.create()
 
 shelf = Blueprint('shelf', __name__)
 
+def get_shelves():
+    log.info(f"Shelves list requested")
+    # TODO: filter name for authorized user
+    shelves = ub.session.query(ub.Shelf)
+    return shelves
+
+def get_shelf(shelf_name):
+    log.info(f"Shelf name requested is: {shelf_name}")
+    # TODO: filter name for authorized user
+    shelf = ub.session.query(ub.Shelf).filter(ub.Shelf.name == shelf_name).first()
+    if shelf is None:
+        log.info(f"Shelf not found: {shelf_name}")
+        return []
+    log.info(shelf)
+    books_in_shelf = list()
+    books_in_shelf = ub.session.query(ub.BookShelf).filter(ub.BookShelf.shelf == shelf.id).order_by(
+        ub.BookShelf.order.asc()).all()
+    return books_in_shelf
+
 
 @shelf.route("/shelf/add/<int:shelf_id>/<int:book_id>", methods=["POST"])
 @user_login_required

@@ -1011,6 +1011,7 @@ def render_magic_shelf(shelf_id, sort_param, page):
             sort_param=sort_param,
             bypass_cache=bypass_cache
         )
+        log.debug(f"Magic shelf params: {shelf_id}, {page}, {per_page}, {sort_order}, {sort_param}, {bypass_cache}")
         log.debug(f"Magic shelf {shelf_id} returned {len(books)} books out of {total_count} total")
 
         # Log activity
