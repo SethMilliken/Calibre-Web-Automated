@@ -1175,15 +1175,16 @@ def get_duplicate_status():
                 'needs_scan': duplicate_index_needs_full_scan,
                 'needs_full_scan': duplicate_index_needs_full_scan
             })
-        
+
         # Cache is missing - DO NOT trigger scan here!
         # This endpoint is called on every page load via duplicate-notifier.js
         # Scans should ONLY be triggered by:
         # 1. Manual "Trigger Scan" button on /duplicates page (via /duplicates/trigger-scan)
         # 2. After ingest operations (via cache invalidation + manual trigger)
         # 3. Scheduled background scans (Phase 2 - not yet implemented)
-        log.debug("[cwa-duplicates] Cache invalid/pending in status check, returning empty (no auto-scan)")
-        
+        if notifications_enabled:
+            log.debug("[cwa-duplicates] Cache invalid/pending in status check, returning empty (no auto-scan)")
+
         return jsonify({
             'success': True,
             'enabled': bool(notifications_enabled),
