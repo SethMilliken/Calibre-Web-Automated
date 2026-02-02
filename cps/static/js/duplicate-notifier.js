@@ -5,24 +5,24 @@
 
 (function() {
     'use strict';
-    
+
     const STORAGE_KEY = 'cwa_duplicates_notification_shown';
     const LAST_COUNT_KEY = 'cwa_duplicates_last_count';
     const POLL_INTERVAL_MS = 2500;
     const POLL_MAX_ATTEMPTS = 60; // ~2.5 minutes
-    
+
     let currentDuplicateCount = 0;
     let pollAttempts = 0;
     let pollTimer = null;
     let lastPreviewSignature = '';
-    
+
     /**
      * Check if notification was already shown in this session
      */
     function wasNotificationShown() {
         return sessionStorage.getItem(STORAGE_KEY) === 'true';
     }
-    
+
     /**
      * Mark notification as shown for this session
      */
@@ -39,14 +39,14 @@
     function setLastNotifiedCount(count) {
         sessionStorage.setItem(LAST_COUNT_KEY, String(count || 0));
     }
-    
+
     /**
      * Update the duplicate count badge in sidebar
      */
     function updateBadge(count) {
         currentDuplicateCount = count;
         const badge = document.getElementById('duplicate-count-badge');
-        
+
         if (badge) {
             if (count > 0) {
                 badge.textContent = count > 99 ? '99+' : count;
@@ -56,7 +56,7 @@
             }
         }
     }
-    
+
     /**
      * Fetch duplicate status from API
      */
@@ -109,7 +109,7 @@
     function isDuplicatesPage() {
         return window.location.pathname.replace(/\/+$/, '').endsWith('/duplicates');
     }
-    
+
     /**
      * Show the notification modal
      */
@@ -119,18 +119,18 @@
         if (isModalActive()) {
             return;
         }
-        
+
         const lastCount = getLastNotifiedCount();
         if (wasNotificationShown() && count <= lastCount) {
             return;
         }
-        
+
         // Update count in modal
         const countBadge = document.getElementById('duplicate-notification-count');
         if (countBadge) {
             countBadge.textContent = count;
         }
-        
+
         // Update preview list
         const previewList = document.getElementById('duplicate-notification-preview');
         if (previewList && preview && preview.length > 0) {
@@ -145,11 +145,11 @@
                 `).join('');
             }
         }
-        
+
         // Show modal and backdrop
         const modal = document.getElementById('duplicate-notification-modal');
         const backdrop = document.getElementById('duplicate-notification-backdrop');
-        
+
         if (modal && backdrop) {
             // Small delay for smooth animation
             setTimeout(() => {
@@ -176,7 +176,8 @@
         }
         document.dispatchEvent(new CustomEvent('cwa:duplicates-status', { detail: data }));
 
-        if (isModalActive()) {
+        if (isModalActive() || !data.enabled) {
+            stopStatusPolling();
             return;
         }
 
@@ -196,20 +197,20 @@
             startStatusPolling();
         }
     }
-    
+
     /**
      * Hide the notification modal
      */
     function hideNotificationModal() {
         const modal = document.getElementById('duplicate-notification-modal');
         const backdrop = document.getElementById('duplicate-notification-backdrop');
-        
+
         if (modal && backdrop) {
             modal.classList.remove('active');
             backdrop.classList.remove('active');
         }
     }
-    
+
     /**
      * Escape HTML to prevent XSS
      */
@@ -218,7 +219,7 @@
         div.textContent = text;
         return div.innerHTML;
     }
-    
+
     /**
      * Initialize event listeners
      */
@@ -228,19 +229,19 @@
         if (closeBtn) {
             closeBtn.addEventListener('click', hideNotificationModal);
         }
-        
+
         // Remind me later button
         const remindBtn = document.getElementById('duplicate-notification-remind');
         if (remindBtn) {
             remindBtn.addEventListener('click', hideNotificationModal);
         }
-        
+
         // Click outside to close
         const backdrop = document.getElementById('duplicate-notification-backdrop');
         if (backdrop) {
             backdrop.addEventListener('click', hideNotificationModal);
         }
-        
+
         // Escape key to close
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
@@ -248,7 +249,7 @@
             }
         });
     }
-    
+
     /**
      * Main initialization function
      */
@@ -258,10 +259,10 @@
         if (!userHasPermission) {
             return; // Modal not rendered, user doesn't have permission
         }
-        
+
         // Initialize event listeners
         initializeEventListeners();
-        
+
         // Fetch initial status once on page load
         // No periodic updates - badge refreshes after ingest operations only
         const bootstrapData = window.cwaDuplicateBootstrap;
@@ -286,19 +287,19 @@
             }
         });
     }
-    
+
     // Expose functions globally for use by other scripts
     window.CWADuplicates = {
         updateBadge: updateBadge,
         fetchStatus: fetchDuplicateStatus,
         hideModal: hideNotificationModal
     };
-    
+
     // Initialize when DOM is ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
         init();
     }
-    
+
 })();
