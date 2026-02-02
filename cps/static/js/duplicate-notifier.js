@@ -168,7 +168,7 @@
             return;
         }
 
-        if (isModalActive()) {
+        if (isModalActive() || !data.enabled) {
             stopStatusPolling();
             return;
         }
