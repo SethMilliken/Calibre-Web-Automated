@@ -297,9 +297,9 @@ def create_app():
                         ub.MagicShelf.user_id == current_user.id
                     )
                 ).all()
-                
-                log.debug(f"Found {len(g.magic_shelves_access)} total magic shelves for user {current_user.id} before filtering")
-                
+
+                # log.debug(f"Found {len(g.magic_shelves_access)} total magic shelves for user {current_user.id} before filtering")
+
                 # Filter out hidden items
                 filtered_shelves = []
                 for shelf in g.magic_shelves_access:
@@ -333,7 +333,7 @@ def create_app():
                     filtered_shelves.append(shelf)
 
                 g.magic_shelves_access = filtered_shelves
-                log.debug(f"Filtered to {len(filtered_shelves)} visible magic shelves for user {current_user.id}")
+                # log.debug(f"Filtered to {len(filtered_shelves)} visible magic shelves for user {current_user.id}")
 
                 # Magic Shelf Count Caching
                 if 'magic_shelf_counts' not in session:
