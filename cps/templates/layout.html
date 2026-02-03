@@ -201,6 +201,7 @@
                     </form>
                   </li>
               {% endif %}
+              <li class="shelfmark"><a href="{{ request.scheme }}://{{ request.host }}:8084"  role="button"><span class="glyphicon glyphicon-inbox"></span></a>
               {% if not current_user.is_anonymous and not simple%}
                 <li class="top_tasks"><a id="top_tasks" href="{{url_for('tasks.get_tasks_status')}}"><span class="glyphicon glyphicon-tasks"></span> <span class="hidden-sm">{{_('Tasks')}}</span></a></li>
               {% endif %}
