@@ -11,7 +11,7 @@ import sys
 import os
 import mimetypes
 
-from flask import Flask, g, session
+from flask import Flask, g, request, session
 from .MyLoginManager import MyLoginManager
 from flask_principal import Principal
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -244,7 +244,6 @@ def create_app():
     # Ensure a valid calibre_db session exists before handling each request
     @app.before_request
     def _cwa_ensure_db_session():
-        from flask import g, request
         from .cw_login import current_user
         from sqlalchemy import or_
         import time
@@ -302,7 +301,6 @@ def create_app():
                 log.debug(f"Found {len(g.magic_shelves_access)} total magic shelves for user {current_user.id} before filtering")
                 
                 # Filter out hidden items
-                from . import magic_shelf
                 filtered_shelves = []
                 for shelf in g.magic_shelves_access:
                     # Skip hidden system templates
@@ -323,7 +321,7 @@ def create_app():
 
                         # Skip if hidden
                         if template_key in hidden_template_keys:
-                            log.debug(f"Hiding system shelf template '{template_key}' for user {current_user.id}")
+                            #log.debug(f"Hiding system shelf template '{template_key}' for user {current_user.id}")
                             continue
 
                     # Skip hidden custom public shelves (not owned by user)
@@ -386,4 +384,3 @@ def create_app():
     register_startup_tasks()
 
     return app
-
