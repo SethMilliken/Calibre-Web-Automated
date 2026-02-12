@@ -16,8 +16,10 @@
     var ua = (navigator && navigator.userAgent) ? navigator.userAgent : "";
     var isSafari = /safari/i.test(ua) && !/chrome|chromium|crios|android/i.test(ua);
 
-    if (!$.support.xhrFileUpload || !$.support.xhrFormData) {
-        // skip decorating form
+    if (!$.support.xhrFileUpload || !$.support.xhrFormData || isSafari) {
+        // Skip decorating form in Safari, but provide a no-op uploadprogress
+        // function so we do not break the jQuery bindings that make use of it.
+        $.fn.uploadprogress = function(){};
         return;
     }
 
