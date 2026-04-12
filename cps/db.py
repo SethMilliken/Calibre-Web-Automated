@@ -104,6 +104,7 @@ def _register_sqlite_udfs(dbapi_connection, _connection_record):
     except Exception:
         pass
 
+
 cc_exceptions = ['composite', 'series']
 cc_classes = {}
 
@@ -165,7 +166,7 @@ class Identifiers(Base):
         if format_type == 'amazon':
             return "Amazon"
         elif format_type.startswith("amazon_"):
-            return "Amazon.{0}".format(format_type[7:].lower().replace("uk","co.uk"))
+            return "Amazon.{0}".format(format_type[7:].lower().replace("uk", "co.uk"))
         elif format_type == "isbn":
             return "ISBN"
         elif format_type == "doi":
@@ -208,7 +209,7 @@ class Identifiers(Base):
         if format_type == "amazon" or format_type == "asin":
             return "https://amazon.com/dp/{0}".format(self.val)
         elif format_type.startswith('amazon_'):
-            return "https://amazon.{0}/dp/{1}".format(format_type[7:].lower().replace("uk","co.uk"), self.val)
+            return "https://amazon.{0}/dp/{1}".format(format_type[7:].lower().replace("uk", "co.uk"), self.val)
         elif format_type == "isbn":
             return "https://www.worldcat.org/isbn/{0}".format(self.val)
         elif format_type == "doi":
@@ -666,14 +667,14 @@ class CalibreDB:
         """
         if self.session is not None:
             return  # Fast path - session already exists
-        
+
         # Session is None - need to recreate it
         # Acquire lock to ensure atomic recreation (no interruption by dispose)
         with self._reconnect_lock:
             # Double-check after acquiring lock (another thread may have recreated it)
             if self.session is not None:
                 return
-            
+
             # Try to recreate session from factory
             if self.session_factory is not None:
                 try:
@@ -681,7 +682,7 @@ class CalibreDB:
                     return  # Success
                 except Exception as ex:
                     log.error(f"Failed to init session from factory: {ex}")
-            
+
             # Factory is None or init failed - try to rebuild entire database setup
             if self.config and getattr(self.config, 'config_calibre_dir', None):
                 try:
@@ -707,7 +708,7 @@ class CalibreDB:
                             return
                 except Exception as ex:
                     log.error(f"Failed to init session from app.db in ensure_session: {ex}")
-            
+
             # If we still don't have a session, log warning
             # Don't raise exception - let caller handle AttributeError if they try to use None session
             if self.session is None:
@@ -1068,7 +1069,7 @@ class CalibreDB:
     ):
         if not allow_show_archived:
             archived_books = (ub.session.query(ub.ArchivedBook)
-                              .filter(ub.ArchivedBook.user_id==int(current_user.id))
+                              .filter(ub.ArchivedBook.user_id == int(current_user.id))
                               .filter(ub.ArchivedBook.is_archived.is_(True))
                               .all())
             archived_book_ids = [archived_book.book_id for archived_book in archived_books]
@@ -1094,7 +1095,7 @@ class CalibreDB:
         negtags_list = current_user.list_denied_tags()
         postags_list = current_user.list_allowed_tags()
         neg_content_tags_filter = false() if negtags_list == [''] else Books.tags.any(Tags.name.in_(negtags_list))
-        
+
         # Issue #906: When viewing a specific tag category, include that tag in allowed tags
         if viewing_tag_id is not None and postags_list != ['']:
             # Get the tag name for the viewing_tag_id
@@ -1102,7 +1103,7 @@ class CalibreDB:
             if viewing_tag and viewing_tag.name not in postags_list:
                 # Temporarily add the viewed tag to the allowed list for this query
                 postags_list = postags_list + [viewing_tag.name]
-        
+
         pos_content_tags_filter = true() if postags_list == [''] else Books.tags.any(Tags.name.in_(postags_list))
         if self.config.config_restricted_column:
             try:
@@ -1209,7 +1210,7 @@ class CalibreDB:
             query = self.generate_linked_query(config_read_column, database)
         else:
             query = self.session.query(database)
-        
+
         # Eagerly load template relationships to prevent DetachedInstanceError
         # during rendering under concurrent status/notification requests.
         if database == Books:
@@ -1219,7 +1220,7 @@ class CalibreDB:
                 joinedload(Books.series),
                 joinedload(Books.ratings),
             )
-        
+
         off = int(int(pagesize) * (page - 1))
 
         indx = len(join)
@@ -1465,6 +1466,21 @@ class CalibreDB:
 
     def create_functions(self, config=None):
         """Backward-compatible no-op.
+        self.ensure_session()
+        if self.session is None:
+            log.error("create_functions: Cannot create functions because session is None")
+            return
+
+        # user defined sort function for calibre databases (Series, etc.)
+        if config:
+            def _title_sort(title):
+                # calibre sort stuff
+                title_pat = re.compile(config.config_title_regex, re.IGNORECASE)
+                match = title_pat.search(title)
+                if match:
+                    prep = match.group(1)
+                    title = title[len(prep):] + ', ' + prep
+                return strip_whitespaces(title)
 
         UDFs (lower/uuid4/title_sort) are now registered once per SQLite
         connection by ``_register_sqlite_udfs`` via the engine ``connect``
