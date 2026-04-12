@@ -32,29 +32,14 @@ from werkzeug.security import generate_password_hash
 from markupsafe import escape
 from urllib.parse import quote
 
-try:
-    from . import cw_advocate
-    from .cw_advocate.exceptions import UnacceptableAddressException
-    use_advocate = True
-except ImportError as e:
-    use_advocate = False
-    advocate = requests
-    UnacceptableAddressException = MissingSchema = BaseException
-
 from . import calibre_db, cli_param
 from .string_helper import strip_whitespaces
 from .tasks.convert import TaskConvert
 from . import logger, config, db, ub, fs
 from . import gdriveutils as gd
-from .constants import (STATIC_DIR as _STATIC_DIR, CACHE_TYPE_THUMBNAILS, THUMBNAIL_TYPE_COVER, THUMBNAIL_TYPE_SERIES,
-                        SUPPORTED_CALIBRE_BINARIES)
+from .constants import (STATIC_DIR as _STATIC_DIR, CACHE_TYPE_THUMBNAILS, THUMBNAIL_TYPE_COVER, THUMBNAIL_TYPE_SERIES, SUPPORTED_CALIBRE_BINARIES)
 from .subproc_wrapper import process_wait
 
-# Track books with pending thumbnail generation to prevent duplicate tasks
-_pending_thumbnail_books = set()
-
-import sys
-sys.path.insert(1, '/app/calibre-web-automated/scripts/')
 from cwa_db import CWA_DB
 from .services.worker import WorkerThread
 from .tasks.mail import TaskEmail
@@ -63,6 +48,21 @@ from .tasks.metadata_backup import TaskBackupMetadata
 from .file_helper import get_temp_dir
 from .epub_helper import get_content_opf, create_new_metadata_backup, updateEpub, replace_metadata
 from .embed_helper import do_calibre_export
+
+try:
+    from . import cw_advocate
+    from .cw_advocate.exceptions import UnacceptableAddressException
+    use_advocate = True
+except ImportError:
+    use_advocate = False
+    advocate = requests
+    UnacceptableAddressException = MissingSchema = BaseException
+
+import sys
+sys.path.insert(1, '/app/calibre-web-automated/scripts/')
+
+# Track books with pending thumbnail generation to prevent duplicate tasks
+_pending_thumbnail_books = set()
 
 log = logger.create()
 
@@ -250,7 +250,8 @@ def get_valid_filename(value, replace_whitespace=True, chars=128):
     except ModuleNotFoundError:
         # Attempt path adjustment (similar to scripts/cover_enforcer)
         try:  # pragma: no cover
-            import sys as _sys, os as _os
+            import sys as _sys
+            import os as _os
             project_root = _os.path.abspath(_os.path.join(_os.path.dirname(__file__), '..'))
             if project_root not in _sys.path:
                 _sys.path.insert(0, project_root)
@@ -431,15 +432,15 @@ def rename_all_files_on_change(one_book, new_path, old_path, all_new_name, gdriv
         if not gdrive:
             if not os.path.exists(new_path):
                 os.makedirs(new_path)
-            
+
             old_file = os.path.join(old_path, file_format.name + '.' + file_format.format.lower())
             new_file = os.path.join(new_path, all_new_name + '.' + file_format.format.lower())
-            
+
             # Skip if source and destination are the same
             if old_file == new_file:
                 log.debug("Skipping file rename - source and destination are identical: %s", old_file)
                 continue
-            
+
             # Check if source file exists
             if not os.path.exists(old_file):
                 log.warning("Source file not found for rename: %s", old_file)
@@ -451,7 +452,7 @@ def rename_all_files_on_change(one_book, new_path, old_path, all_new_name, gdriv
                 else:
                     log.error("Neither old nor new file exists - cannot rename %s to %s", old_file, new_file)
                     continue
-            
+
             # Check if destination already exists
             if os.path.exists(new_file) and old_file != new_file:
                 log.warning("Destination file already exists, will overwrite: %s", new_file)
@@ -459,7 +460,7 @@ def rename_all_files_on_change(one_book, new_path, old_path, all_new_name, gdriv
                     os.remove(new_file)
                 except OSError as ex:
                     log.error("Could not remove existing destination file %s: %s", new_file, ex)
-            
+
             # Attempt to rename the file
             try:
                 shutil.move(old_file, new_file)
@@ -483,7 +484,7 @@ def rename_all_files_on_change(one_book, new_path, old_path, all_new_name, gdriv
                 gd.moveGdriveFileRemote(g_file, all_new_name + '.' + file_format.format.lower())
                 gd.updateDatabaseOnEdit(g_file['id'], all_new_name + '.' + file_format.format.lower())
             else:
-                log.error("File {} not found on gdrive"
+                log.error("File {} not found on gdrive: {}"
                           .format(old_path, file_format.name + '.' + file_format.format.lower()))
 
         # change name in Database
@@ -544,7 +545,7 @@ def update_dir_structure_file(book_id, calibre_path, original_filepath, new_auth
                                      path)
         new_path = os.path.join(calibre_path, new_author_dir, new_title_dir).replace('\\', '/')
         all_new_name = get_valid_filename(local_book.title, chars=42) + ' - ' \
-                       + get_valid_filename(new_author, chars=42)
+            + get_valid_filename(new_author, chars=42)
         # Book folder already moved, only files need to be renamed
         rename_all_files_on_change(local_book, new_path, new_path, all_new_name)
 
@@ -590,7 +591,7 @@ def update_dir_structure_gdrive(book_id, first_author):
             gd.updateDatabaseOnEdit(g_file['id'], book.path)
         else:
             return _('File %(file)s not found on Google Drive', file=authordir)  # file not found'''
-    if titledir != new_titledir or authordir != new_authordir :
+    if titledir != new_titledir or authordir != new_authordir:
         all_new_name = get_valid_filename(book.title, chars=42) + ' - ' \
                        + get_valid_filename(new_authordir, chars=42)
         rename_all_files_on_change(book, book.path, book.path, all_new_name, gdrive=True)  # todo: Move filenames on gdrive
@@ -639,11 +640,11 @@ def move_files_on_change(calibre_path, new_author_dir, new_titledir, localbook, 
                         src_file = os.path.join(dir_name, file)
                         dest_dir = new_path + dir_name[len(path):]
                         dest_file = os.path.join(dest_dir, file)
-                        
+
                         # Create destination directory if it doesn't exist
                         if not os.path.exists(dest_dir):
                             os.makedirs(dest_dir)
-                        
+
                         try:
                             shutil.move(src_file, dest_file)
                         except OSError as ex:
@@ -655,14 +656,14 @@ def move_files_on_change(calibre_path, new_author_dir, new_titledir, localbook, 
                                 log.error("Copy+delete fallback failed for %s: %s", src_file, fallback_ex)
                                 # Continue with other files even if one fails
                                 continue
-            
+
             # Try to remove old author directory if empty
             if os.path.exists(os.path.split(path)[0]) and not os.listdir(os.path.split(path)[0]):
                 try:
                     shutil.rmtree(os.path.split(path)[0])
                 except (IOError, OSError) as ex:
                     log.error("Deleting authorpath for book %s failed: %s", localbook.id, ex)
-        
+
         # change location in database to new author/title path
         localbook.path = os.path.join(new_author_dir, new_titledir).replace('\\', '/')
     except OSError as ex:
@@ -680,13 +681,13 @@ def rename_files_on_change(first_author,
                            calibre_path="",
                            gdrive=False):
     # Rename all files from old names to new names
-    #try:
-        #clean_author_database(renamed_author, calibre_path, gdrive=gdrive)
-        #if first_author and first_author not in renamed_author:
-        #    clean_author_database([first_author], calibre_path, local_book, gdrive)
-        #if not gdrive and not renamed_author and not original_filepath and len(os.listdir(os.path.dirname(path))) == 0:
-        #    shutil.rmtree(os.path.dirname(path))
-    #except (OSError, FileNotFoundError) as ex:
+    # try:
+    #     clean_author_database(renamed_author, calibre_path, gdrive=gdrive)
+    #     if first_author and first_author not in renamed_author:
+    #        clean_author_database([first_author], calibre_path, local_book, gdrive)
+    #     if not gdrive and not renamed_author and not original_filepath and len(os.listdir(os.path.dirname(path))) == 0:
+    #        shutil.rmtree(os.path.dirname(path))
+    # except (OSError, FileNotFoundError) as ex:
     #    log.error_or_exception("Error in rename file in path {}".format(ex))
     #    return _("Error in rename file in path: {}".format(str(ex)))
     return False
@@ -890,7 +891,7 @@ def get_book_cover_internal(book, resolution=None):
                     if not is_kobo_request and use_IM:
                         from .tasks.thumbnail import TaskGenerateCoverThumbnails
                         from .services.worker import WorkerThread
-                        
+
                         # Queue thumbnail generation task if not already pending (prevents duplicate tasks)
                         if book.id not in _pending_thumbnail_books:
                             thumbnail_task = TaskGenerateCoverThumbnails(book_id=book.id)
@@ -902,7 +903,7 @@ def get_book_cover_internal(book, resolution=None):
                             except Exception as queue_ex:
                                 # If queueing fails, don't add to pending set
                                 log.error(f'Failed to queue thumbnail task for book {book.id}: {queue_ex}')
-                        
+
                         # Note: Thumbnails will be generated in background
                         # Current request will fall back to serving original cover.jpg
                 except Exception as ex:
@@ -920,7 +921,7 @@ def get_book_cover_internal(book, resolution=None):
                     thumbnail_to_serve = jpg_thumb if jpg_exists else (webp_thumb if webp_exists else None)
                 else:
                     thumbnail_to_serve = webp_thumb if webp_exists else (jpg_thumb if jpg_exists else None)
-            except:
+            except Exception:
                 # Fallback if we can't determine request context
                 thumbnail_to_serve = webp_thumb if webp_exists else (jpg_thumb if jpg_exists else None)
             if thumbnail_to_serve:
@@ -1114,7 +1115,7 @@ def save_cover_from_url(url, book_path):
     except MissingDelegateError as ex:
         log.info(u'File Format Error %s', ex)
         return False, _("Cover Format Error")
-    except UnacceptableAddressException as e:
+    except UnacceptableAddressException:
         log.error("Localhost or local network was accessed for cover upload")
         return False, _("You are not allowed to access localhost or the local network for cover uploads")
     finally:
@@ -1542,7 +1543,7 @@ def get_download_link(book_id, book_format, client):
         try:
             import json
             from flask import request
-            
+
             # Detect source of download
             source = request.args.get('from', 'direct')
             referer = request.headers.get('Referer', '')
@@ -1559,7 +1560,7 @@ def get_download_link(book_id, book_format, client):
                     source = 'book_detail'
                 elif '/shelf' in referer:
                     source = 'shelf'
-            
+
             cwa_db = CWA_DB()
             cwa_db.log_activity(
                 user_id=current_user.id,
@@ -1650,14 +1651,14 @@ def get_internal_api_url(path):
     port = os.getenv('CWA_PORT_OVERRIDE', '8083').strip()
     if not port.isdigit():
         port = '8083'
-    
+
     protocol = "http"
     certfile = config.get_config_certfile()
     keyfile = config.get_config_keyfile()
     if certfile and keyfile and os.path.isfile(certfile) and os.path.isfile(keyfile):
         protocol = "https"
-        
+
     if not path.startswith("/"):
         path = "/" + path
-        
+
     return f"{protocol}://127.0.0.1:{port}{path}"
