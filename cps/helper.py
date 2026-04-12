@@ -322,21 +322,28 @@ def split_authors(values):
 def get_sorted_author(value):
     value2 = None
     try:
-        if ',' not in value:
-            regexes = [r"^(JR|SR)\.?$", r"^I{1,3}\.?$", r"^IV\.?$"]
-            combined = "(" + ")|(".join(regexes) + ")"
-            value = value.split(" ")
-            if re.match(combined, value[-1].upper()):
-                if len(value) > 1:
-                    value2 = value[-2] + ", " + " ".join(value[:-2]) + " " + value[-1]
-                else:
-                    value2 = value[0]
-            elif len(value) == 1:
-                value2 = value[0]
+        # if ',' not in value:
+        regexes = [
+            r"^(JR|SR)\.?$",
+            r"^I{1,3}\.?$",
+            r"^IV\.?$",
+            r"^TRANS\.$"
+        ]
+        combined = "(" + ")|(".join(regexes) + ")"
+        log.debug("Regexes: {}".format(combined))
+        value = value.split(" ")
+        log.debug("Incoming: {}".format(value))
+        if re.match(combined, value[-1].upper()):
+            if len(value) > 1:
+                value2 = value[-2] + ", " + " ".join(value[:-2]) + " " + value[-1]
             else:
-                value2 = value[-1] + ", " + " ".join(value[:-1])
+                value2 = value[0]
+        elif len(value) == 1:
+            value2 = value[0]
         else:
-            value2 = value
+            value2 = value[-1] + ", " + " ".join(value[:-1])
+        # else:
+        #     value2 = value
     except Exception as ex:
         log.error("Sorting author %s failed: %s", value, ex)
         if isinstance(list, value2):
