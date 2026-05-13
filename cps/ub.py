@@ -815,7 +815,7 @@ class KoboAnnotationSync(Base):
     highlighted_text = Column(String, nullable=True)
     highlight_color = Column(String, nullable=True)
     note_text = Column(String, nullable=True)
-    
+
     __table_args__ = (
         Index('ix_kobo_annotation_sync_user_annotation', 'user_id', 'annotation_id'),
         Index('ix_kobo_annotation_sync_user_book', 'user_id', 'book_id'),
@@ -1267,7 +1267,7 @@ def migrate_magic_shelf_table(engine, _session):
     except exc.OperationalError:
         _safe_session_rollback(_session, "magic_shelf.is_system")
         _run_ddl_with_retry(engine, "ALTER TABLE magic_shelf ADD column 'is_system' Boolean DEFAULT 0")
-    
+
     # Check and add kobo_sync column
     try:
         _session.query(exists().where(MagicShelf.kobo_sync)).scalar()
@@ -1620,26 +1620,26 @@ def migrate_Database(_session):
     from .progress_syncing.settings import is_koreader_sync_enabled
     if is_koreader_sync_enabled():
         ensure_app_db_tables(engine.raw_connection())
-    
+
     # Migrate system magic shelves for existing users
     try:
         from . import magic_shelf
-        
+
         # Get all valid current template names
         current_template_names = {template['name'] for template in magic_shelf.SYSTEM_SHELF_TEMPLATES.values()}
-        
+
         log.info("Migrating system magic shelves...")
         users = _session.query(User).filter(User.role != constants.ROLE_ANONYMOUS).all()
         total_deleted = 0
         total_created = 0
-        
+
         for user in users:
             # Get all system shelves for this user
             user_system_shelves = _session.query(MagicShelf).filter(
                 MagicShelf.user_id == user.id,
                 MagicShelf.is_system == True
             ).all()
-            
+
             # Delete system shelves that don't match current templates
             for shelf in user_system_shelves:
                 if shelf.name not in current_template_names:
@@ -1649,36 +1649,36 @@ def migrate_Database(_session):
                     _session.delete(shelf)
                     total_deleted += 1
                     log.debug(f"Deleted deprecated system shelf '{shelf.name}' (ID: {shelf.id}) for user {user.id}")
-            
+
             # Get user's template-based hide preferences (not shelf-specific)
             hidden_templates = _session.query(HiddenMagicShelfTemplate.template_key).filter(
                 HiddenMagicShelfTemplate.user_id == user.id,
                 HiddenMagicShelfTemplate.template_key.isnot(None)
             ).all()
             hidden_keys = {ht.template_key for ht in hidden_templates}
-            
+
             # Create missing current templates
             templates_to_create = []
             for template_key, template_data in magic_shelf.SYSTEM_SHELF_TEMPLATES.items():
                 # Skip if user has hidden this template type
                 if template_key in hidden_keys:
                     continue
-                
+
                 # Check if user already has this current template
                 has_template = _session.query(MagicShelf).filter(
                     MagicShelf.user_id == user.id,
                     MagicShelf.name == template_data['name'],
                     MagicShelf.is_system == True
                 ).first()
-                
+
                 if not has_template:
                     templates_to_create.append(template_key)
-            
+
             # Create missing templates
             if templates_to_create:
                 created = magic_shelf.create_system_magic_shelves(user.id, templates_to_create)
                 total_created += created
-        
+
         if total_deleted > 0 or total_created > 0:
             _session.commit()
             log.info(f"System shelf migration complete: {total_deleted} old shelves removed, {total_created} new shelves created")

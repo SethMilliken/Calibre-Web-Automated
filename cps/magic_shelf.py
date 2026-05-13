@@ -149,6 +149,7 @@ def get_visible_magic_shelves_for_user(user_id):
 
     return filtered_shelves
 
+
 # System Magic Shelf Templates
 # These are pre-built shelves that can be created for users as examples/templates
 SYSTEM_SHELF_TEMPLATES = {
@@ -632,7 +633,7 @@ def get_books_for_magic_shelf(shelf_id, page=1, page_size=None, sort_order=None,
         # Apply pagination to the list of IDs we just fetched
         if page_size is not None and page_size > 0:
             start = (page - 1) * page_size
-            page_ids = all_ids[start : start + page_size]
+            page_ids = all_ids[start: start + page_size]
         else:
             page_ids = all_ids
 
