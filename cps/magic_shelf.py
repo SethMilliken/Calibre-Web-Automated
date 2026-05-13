@@ -542,13 +542,13 @@ def build_query_from_rules(rules_json, user_id=None):
     return None
 
 
-def get_book_ids_for_magic_shelf(shelf_id, sort_order=None, sort_param='stored', bypass_cache=False):
+def get_book_ids_for_magic_shelf(shelf_id, sort_order=None, sort_param='stored', bypass_cache=False, user=current_user):
     """Return ordered book IDs for a magic shelf without loading book objects."""
     try:
-        if not bypass_cache and current_user.is_authenticated:
+        if not bypass_cache and user.is_authenticated:
             cache = ub.session.query(ub.MagicShelfCache).filter_by(
                 shelf_id=shelf_id,
-                user_id=current_user.id,
+                user_id=user.id,
                 sort_param=sort_param,
             ).first()
             if cache:
@@ -567,15 +567,15 @@ def get_book_ids_for_magic_shelf(shelf_id, sort_order=None, sort_param='stored',
         all_ids = [book_id for (book_id,) in query.with_entities(db.Books.id).all()]
         total_count = len(all_ids)
 
-        if current_user.is_authenticated:
+        if user.is_authenticated:
             ub.session.query(ub.MagicShelfCache).filter_by(
                 shelf_id=shelf_id,
-                user_id=current_user.id,
+                user_id=user.id,
                 sort_param=sort_param,
             ).delete()
             ub.session.add(ub.MagicShelfCache(
                 shelf_id=shelf_id,
-                user_id=current_user.id,
+                user_id=user.id,
                 sort_param=sort_param,
                 book_ids=all_ids,
                 total_count=total_count,
@@ -634,7 +634,7 @@ def build_book_query_for_magic_shelf(shelf_id, sort_order=None, extra_filter=Non
             query = query.order_by(sort_order)
     return query, magic_shelf
 
-def get_books_for_magic_shelf(shelf_id, page=1, page_size=None, sort_order=None, sort_param='stored', bypass_cache=False):
+def get_books_for_magic_shelf(shelf_id, page=1, page_size=None, sort_order=None, sort_param='stored', bypass_cache=False, user=current_user):
     """
     Takes a MagicShelf ID and returns a paginated list of book objects that match its rules.
 
@@ -655,6 +655,7 @@ def get_books_for_magic_shelf(shelf_id, page=1, page_size=None, sort_order=None,
             sort_order=sort_order,
             sort_param=sort_param,
             bypass_cache=bypass_cache,
+            user=user,
         )
 
         # Apply pagination to the list of IDs we just fetched
@@ -665,11 +666,13 @@ def get_books_for_magic_shelf(shelf_id, page=1, page_size=None, sort_order=None,
             page_ids = all_ids
 
         if not page_ids:
+            log.debug(f"got to later if not page_ids")
             return [], total_count
 
         # Fetch objects for the current page
         cdb = db.CalibreDB(init=True)
         books = cdb.session.query(db.Books).filter(db.Books.id.in_(page_ids)).all()
+        log.debug(f"found books: {books}")
         book_map = {b.id: b for b in books}
         ordered_books = [book_map[bid] for bid in page_ids if bid in book_map]
 
