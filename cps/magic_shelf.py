@@ -607,7 +607,7 @@ def build_book_query_for_magic_shelf(shelf_id, sort_order=None, extra_filter=Non
             query = query.order_by(sort_order)
     return query, magic_shelf
 
-def get_books_for_magic_shelf(shelf_id, page=1, page_size=None, sort_order=None, sort_param='stored', bypass_cache=False):
+def get_books_for_magic_shelf(shelf_id, page=1, page_size=None, sort_order=None, sort_param='stored', bypass_cache=False, user=current_user):
     """
     Takes a MagicShelf ID and returns a paginated list of book objects that match its rules.
 
@@ -638,11 +638,13 @@ def get_books_for_magic_shelf(shelf_id, page=1, page_size=None, sort_order=None,
             page_ids = all_ids
 
         if not page_ids:
+            log.debug(f"got to later if not page_ids")
             return [], total_count
 
         # Fetch objects for the current page
         cdb = db.CalibreDB(init=True)
         books = cdb.session.query(db.Books).filter(db.Books.id.in_(page_ids)).all()
+        log.debug(f"found books: {books}")
         book_map = {b.id: b for b in books}
         ordered_books = [book_map[bid] for bid in page_ids if bid in book_map]
 
