@@ -1,5 +1,11 @@
 # Calibre-Web Automated Bug Fixes
 
+**Note**: As of 2026-05-13 this branch has been superseded by [Calibre Web
+NextGen](https://github.com/new-usemame/Calibre-Web-NextGen), a more organized
+effort to release PRs from the upstream project. If you were making use of the
+bugfixes here, I strongly recommend that you switch over to that fork, as all of
+these PRs have been merged there along with many, many more.
+
 This branch contains a curated selection of enhancements and bug fixes that have
 not yet been merged upstream.
 
