@@ -149,6 +149,7 @@ def get_visible_magic_shelves_for_user(user_id):
 
     return filtered_shelves
 
+
 # System Magic Shelf Templates
 # These are pre-built shelves that can be created for users as examples/templates
 SYSTEM_SHELF_TEMPLATES = {

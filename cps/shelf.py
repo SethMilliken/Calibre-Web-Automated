@@ -70,7 +70,7 @@ def add_to_shelf(shelf_id, book_id):
     try:
         ub.session.merge(shelf)
         ub.session.commit()
-        
+
         # Track shelf activity
         try:
             from scripts.cwa_db import CWA_DB
@@ -86,7 +86,7 @@ def add_to_shelf(shelf_id, book_id):
             )
         except Exception as e:
             log.debug(f"Failed to log shelf activity: {e}")
-            
+
     except (OperationalError, InvalidRequestError) as e:
         ub.session.rollback()
         log.error_or_exception("Settings Database error: {}".format(e))
@@ -204,7 +204,7 @@ def remove_from_shelf(shelf_id, book_id):
             ub.session.delete(book_shelf)
             shelf.last_modified = datetime.now(timezone.utc)
             ub.session.commit()
-            
+
             # Track shelf activity
             try:
                 from scripts.cwa_db import CWA_DB
@@ -221,7 +221,7 @@ def remove_from_shelf(shelf_id, book_id):
                 )
             except Exception as e:
                 log.debug(f"Failed to log shelf activity: {e}")
-                
+
         except (OperationalError, InvalidRequestError) as e:
             ub.session.rollback()
             log.error_or_exception("Settings Database error: {}".format(e))

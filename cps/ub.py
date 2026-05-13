@@ -22,12 +22,12 @@ from .cw_login import user_logged_in
 try:
     from flask_dance.consumer.backend.sqla import OAuthConsumerMixin  # pyright: ignore[reportMissingImports]
     oauth_support = True
-except ImportError as e:
+except ImportError:
     # fails on flask-dance >1.3, due to renaming
     try:
         from flask_dance.consumer.storage.sqla import OAuthConsumerMixin
         oauth_support = True
-    except ImportError as e:
+    except ImportError:
         OAuthConsumerMixin = BaseException
         oauth_support = False
 from sqlalchemy import create_engine, exc, exists, event, text
@@ -98,7 +98,7 @@ def store_user_session():
     if flask_session.get('_user_id', ""):
         try:
             if not check_user_session(_user, _id, _random):
-                expiry = int((datetime.now()  + timedelta(days=31)).timestamp())
+                expiry = int((datetime.now() + timedelta(days=31)).timestamp())
                 user_session = User_Sessions(_user, _id, _random, expiry)
                 session.add(user_session)
                 session.commit()
@@ -125,12 +125,12 @@ def delete_user_session(user_id, session_key):
 
 def check_user_session(user_id, session_key, random):
     try:
-        found = session.query(User_Sessions).filter(User_Sessions.user_id==user_id,
-                                                    User_Sessions.session_key==session_key,
+        found = session.query(User_Sessions).filter(User_Sessions.user_id == user_id,
+                                                    User_Sessions.session_key == session_key,
                                                     User_Sessions.random == random,
                                                     ).one_or_none()
         if found is not None:
-            new_expiry = int((datetime.now()  + timedelta(days=31)).timestamp())
+            new_expiry = int((datetime.now() + timedelta(days=31)).timestamp())
             if new_expiry - found.expiry > 86400:
                 found.expiry = new_expiry
                 session.merge(found)
@@ -353,7 +353,7 @@ class Anonymous(AnonymousUserMixin, UserBase):
             .first()  # type: User
         self.name = data.name
         self.role = data.role
-        self.id=data.id
+        self.id = data.id
         self.sidebar_view = data.sidebar_view
         self.default_language = data.default_language
         self.locale = data.locale
@@ -368,6 +368,7 @@ class Anonymous(AnonymousUserMixin, UserBase):
         self.opds_only_shelves_sync = data.opds_only_shelves_sync
         self.hardcover_token = data.hardcover_token
         self.auto_send_enabled = data.auto_send_enabled
+
     def role_admin(self):
         return False
 
@@ -391,7 +392,7 @@ class Anonymous(AnonymousUserMixin, UserBase):
         return None
 
     def set_view_property(self, page, prop, value):
-        if not 'view' in flask_session:
+        if 'view' not in flask_session:
             flask_session['view'] = dict()
         if not flask_session['view'].get(page):
             flask_session['view'][page] = dict()
@@ -405,7 +406,6 @@ class User_Sessions(Base):
     session_key = Column(String, default="")
     random = Column(String, default="")
     expiry = Column(Integer)
-
 
     def __init__(self, user_id, session_key, random, expiry):
         super().__init__()
@@ -1421,11 +1421,11 @@ def migrate_oauth_provider_table(engine, _session):
 def migrate_config_table(engine, _session):
     """Migrate configuration table to add new authentication columns"""
     if not engine or not _session:
-            _safe_session_rollback(_session, "settings.config_reverse_proxy_auto_create_users")
-            _run_ddl_with_retry(
-                engine,
-                "ALTER TABLE settings ADD column 'config_reverse_proxy_auto_create_users' Boolean DEFAULT 0",
-            )
+        _safe_session_rollback(_session, "settings.config_reverse_proxy_auto_create_users")
+        _run_ddl_with_retry(
+            engine,
+            "ALTER TABLE settings ADD column 'config_reverse_proxy_auto_create_users' Boolean DEFAULT 0",
+        )
     try:
         # Test if the new column exists
         _session.execute(text("SELECT config_oauth_redirect_host FROM settings LIMIT 1"))
@@ -1499,7 +1499,7 @@ def migrate_magic_shelf_table(engine, _session):
     except exc.OperationalError:
         _safe_session_rollback(_session, "magic_shelf.is_system")
         _run_ddl_with_retry(engine, "ALTER TABLE magic_shelf ADD column 'is_system' Boolean DEFAULT 0")
-    
+
     # Check and add kobo_sync column
     try:
         _session.query(exists().where(MagicShelf.kobo_sync)).scalar()
@@ -2255,26 +2255,25 @@ def migrate_Database(_session):
     # See fork #219.
     from .progress_syncing.models import ensure_app_db_tables
     ensure_app_db_tables(engine.raw_connection())
-    
     # Migrate system magic shelves for existing users
     try:
         from . import magic_shelf
-        
+
         # Get all valid current template names
         current_template_names = {template['name'] for template in magic_shelf.SYSTEM_SHELF_TEMPLATES.values()}
-        
+
         log.info("Migrating system magic shelves...")
         users = _session.query(User).filter(User.role != constants.ROLE_ANONYMOUS).all()
         total_deleted = 0
         total_created = 0
-        
+
         for user in users:
             # Get all system shelves for this user
             user_system_shelves = _session.query(MagicShelf).filter(
                 MagicShelf.user_id == user.id,
-                MagicShelf.is_system == True
+                MagicShelf.is_system is True
             ).all()
-            
+
             # Delete system shelves that don't match current templates
             for shelf in user_system_shelves:
                 if shelf.name not in current_template_names:
@@ -2284,36 +2283,36 @@ def migrate_Database(_session):
                     _session.delete(shelf)
                     total_deleted += 1
                     log.debug(f"Deleted deprecated system shelf '{shelf.name}' (ID: {shelf.id}) for user {user.id}")
-            
+
             # Get user's template-based hide preferences (not shelf-specific)
             hidden_templates = _session.query(HiddenMagicShelfTemplate.template_key).filter(
                 HiddenMagicShelfTemplate.user_id == user.id,
                 HiddenMagicShelfTemplate.template_key.isnot(None)
             ).all()
             hidden_keys = {ht.template_key for ht in hidden_templates}
-            
+
             # Create missing current templates
             templates_to_create = []
             for template_key, template_data in magic_shelf.SYSTEM_SHELF_TEMPLATES.items():
                 # Skip if user has hidden this template type
                 if template_key in hidden_keys:
                     continue
-                
+
                 # Check if user already has this current template
                 has_template = _session.query(MagicShelf).filter(
                     MagicShelf.user_id == user.id,
                     MagicShelf.name == template_data['name'],
-                    MagicShelf.is_system == True
+                    MagicShelf.is_system is True
                 ).first()
-                
+
                 if not has_template:
                     templates_to_create.append(template_key)
-            
+
             # Create missing templates
             if templates_to_create:
                 created = magic_shelf.create_system_magic_shelves(user.id, templates_to_create)
                 total_created += created
-        
+
         if total_deleted > 0 or total_created > 0:
             _session.commit()
             log.info(f"System shelf migration complete: {total_deleted} old shelves removed, {total_created} new shelves created")
