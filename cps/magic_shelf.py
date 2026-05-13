@@ -350,9 +350,9 @@ def build_filter_from_rule(rule, user_id=None):
     field_info = FIELD_MAP.get(field_name)
     if not field_info:
         return None
-    
+
     model, column_name = field_info
-    
+
     # Special handling for hardcover_id identifier
     if model == 'identifier' and column_name == 'hardcover-id':
         # Value is 1 (has hardcover ID) or 0 (doesn't have hardcover ID)
@@ -361,7 +361,7 @@ def build_filter_from_rule(rule, user_id=None):
             has_hardcover = bool(int(value)) if value is not None else True
         except (ValueError, TypeError):
             has_hardcover = True
-        
+
         hardcover_condition = db.Books.identifiers.any(
             or_(
                 db.Identifiers.type == 'hardcover-id',
@@ -369,7 +369,7 @@ def build_filter_from_rule(rule, user_id=None):
                 db.Identifiers.type == 'hardcover-edition'
             )
         )
-        
+
         if operator_name == 'equal':
             # Equal to 1 (Yes) = has hardcover ID
             # Equal to 0 (No) = doesn't have hardcover ID
@@ -380,7 +380,7 @@ def build_filter_from_rule(rule, user_id=None):
         else:
             # For any other operator (shouldn't happen with boolean type), default to equal
             return hardcover_condition if has_hardcover else ~hardcover_condition
-    
+
     # Special handling for read_status custom column
     if model == 'custom_column' and column_name == 'read_status':
         use_custom_column = False
@@ -439,12 +439,12 @@ def build_filter_from_rule(rule, user_id=None):
 
         read_col_class = db.cc_classes[config.config_read_column]
         column = read_col_class.value
-        
+
         # Get the operator
         operator = OPERATOR_MAP.get(operator_name)
         if not operator:
             return None
-        
+
         # Convert integer value (0/1) to boolean (False/True) for proper comparison
         # QueryBuilder sends integers from radio buttons, but custom column expects boolean
         if isinstance(value, int):
@@ -461,7 +461,7 @@ def build_filter_from_rule(rule, user_id=None):
         if not model:
             return None
         column = getattr(model, column_name)
-    
+
     operator = OPERATOR_MAP.get(operator_name)
 
     if not operator:
@@ -516,7 +516,7 @@ def build_query_from_rules(rules_json, user_id=None):
 
     condition = rules_json.get('condition', 'AND').upper()
     rules = rules_json.get('rules', [])
-    
+
     filters = []
     for rule in rules:
         # If 'condition' is present, it's a group, recurse
@@ -537,7 +537,7 @@ def build_query_from_rules(rules_json, user_id=None):
         return and_(*filters)
     elif condition == 'OR':
         return or_(*filters)
-    
+
     return None
 
 
@@ -636,7 +636,7 @@ def build_book_query_for_magic_shelf(shelf_id, sort_order=None, extra_filter=Non
 def get_books_for_magic_shelf(shelf_id, page=1, page_size=None, sort_order=None, sort_param='stored', bypass_cache=False):
     """
     Takes a MagicShelf ID and returns a paginated list of book objects that match its rules.
-    
+
     Args:
         shelf_id: ID of the magic shelf
         page: Page number (1-indexed)
@@ -644,7 +644,7 @@ def get_books_for_magic_shelf(shelf_id, page=1, page_size=None, sort_order=None,
         sort_order: SQLAlchemy order_by expression
         sort_param: String identifier for the sort order (used for cache key)
         bypass_cache: If True, forces a database query and cache update
-    
+
     Returns:
         tuple: (books, total_count)
     """
@@ -655,11 +655,11 @@ def get_books_for_magic_shelf(shelf_id, page=1, page_size=None, sort_order=None,
             sort_param=sort_param,
             bypass_cache=bypass_cache,
         )
-        
+
         # Apply pagination to the list of IDs we just fetched
         if page_size is not None and page_size > 0:
             start = (page - 1) * page_size
-            page_ids = all_ids[start : start + page_size]
+            page_ids = all_ids[start: start + page_size]
         else:
             page_ids = all_ids
 
@@ -671,9 +671,9 @@ def get_books_for_magic_shelf(shelf_id, page=1, page_size=None, sort_order=None,
         books = cdb.session.query(db.Books).filter(db.Books.id.in_(page_ids)).all()
         book_map = {b.id: b for b in books}
         ordered_books = [book_map[bid] for bid in page_ids if bid in book_map]
-        
+
         return ordered_books, total_count
-        
+
     except SQLAlchemyError as e:
         log.error(f"Database error retrieving books for magic shelf {shelf_id}: {e}")
         return [], 0
@@ -685,10 +685,10 @@ def get_books_for_magic_shelf(shelf_id, page=1, page_size=None, sort_order=None,
 def get_book_count_for_magic_shelf(shelf_id):
     """
     Efficiently gets the total count of books for a magic shelf.
-    
+
     Args:
         shelf_id: ID of the magic shelf
-    
+
     Returns:
         int: Total count of matching books
     """
@@ -697,7 +697,7 @@ def get_book_count_for_magic_shelf(shelf_id):
         if query is None:
             return 0
         return query.order_by(None).count()
-        
+
     except Exception as e:
         log.error(f"Error counting books for magic shelf {shelf_id}: {e}")
         return 0
@@ -706,26 +706,26 @@ def get_book_count_for_magic_shelf(shelf_id):
 def create_system_magic_shelves(user_id, template_keys=None):
     """
     Create system magic shelves for a user from templates.
-    
+
     Args:
         user_id: ID of the user to create shelves for
         template_keys: List of template keys to create (None = create all)
-    
+
     Returns:
         int: Number of shelves created
     """
     if template_keys is None:
         template_keys = SYSTEM_SHELF_TEMPLATES.keys()
-    
+
     created_count = 0
-    
+
     for key in template_keys:
         if key not in SYSTEM_SHELF_TEMPLATES:
             log.warning(f"Unknown system shelf template: {key}")
             continue
-        
+
         template = SYSTEM_SHELF_TEMPLATES[key]
-        
+
         try:
             # Check if user already has this system shelf
             existing = ub.session.query(ub.MagicShelf).filter(
@@ -733,11 +733,11 @@ def create_system_magic_shelves(user_id, template_keys=None):
                 ub.MagicShelf.name == template['name'],
                 ub.MagicShelf.is_system.is_(True)
             ).first()
-            
+
             if existing:
                 log.debug(f"User {user_id} already has system shelf '{template['name']}'")
                 continue
-            
+
             # Create new system shelf
             new_shelf = ub.MagicShelf(
                 user_id=user_id,
@@ -747,16 +747,16 @@ def create_system_magic_shelves(user_id, template_keys=None):
                 is_system=True,
                 is_public=0
             )
-            
+
             ub.session.add(new_shelf)
             created_count += 1
             log.info(f"Created system magic shelf '{template['name']}' for user {user_id}")
-            
+
         except Exception as e:
             log.error(f"Error creating system shelf '{template.get('name')}' for user {user_id}: {e}")
             ub.session.rollback()
             continue
-    
+
     if created_count > 0:
         try:
             ub.session.commit()
@@ -765,17 +765,17 @@ def create_system_magic_shelves(user_id, template_keys=None):
             log.error(f"Error committing system shelves for user {user_id}: {e}")
             ub.session.rollback()
             return 0
-    
+
     return created_count
 
 
 def get_system_shelf_template(template_key):
     """
     Get a system shelf template by key.
-    
+
     Args:
         template_key: Key of the template to retrieve
-    
+
     Returns:
         dict: Template data or None if not found
     """
@@ -785,7 +785,7 @@ def get_system_shelf_template(template_key):
 def list_system_shelf_templates():
     """
     Get all available system shelf templates.
-    
+
     Returns:
         dict: All system shelf templates
     """
