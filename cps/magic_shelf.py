@@ -573,10 +573,10 @@ def build_book_query_for_magic_shelf(shelf_id, sort_order=None, extra_filter=Non
         return None, None
 
     rules = magic_shelf.rules
-    log.debug(
-        f"Loading magic shelf '{magic_shelf.name}' (ID: {shelf_id}) with "
-        f"{len(rules.get('rules', [])) if rules else 0} rules"
-    )
+    # log.debug(
+    #     f"Loading magic shelf '{magic_shelf.name}' (ID: {shelf_id}) with "
+    #     f"{len(rules.get('rules', [])) if rules else 0} rules"
+    # )
     if not rules or not rules.get('rules'):
         log.debug(f"No rules defined for magic shelf {shelf_id}")
         return None, magic_shelf
