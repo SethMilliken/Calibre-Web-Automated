@@ -970,11 +970,11 @@ class CalibreDB:
                 .filter(self.common_filters(allow_show_archived, allow_show_hidden=allow_show_hidden))
                 .first())
 
-    def get_book_read_archived(self, book_id, read_column, allow_show_archived=False, allow_show_hidden=False):
+    def get_book_read_archived(self, book_id, read_column, allow_show_archived=False, allow_show_hidden=False, user=current_user):
         self.ensure_session()
         if not read_column:
             bd = (self.session.query(Books, ub.ReadBook.read_status, ub.ArchivedBook.is_archived).select_from(Books)
-                  .join(ub.ReadBook, and_(ub.ReadBook.user_id == int(current_user.id), ub.ReadBook.book_id == book_id),
+                  .join(ub.ReadBook, and_(ub.ReadBook.user_id == int(user.id), ub.ReadBook.book_id == book_id),
                   isouter=True))
         else:
             try:
@@ -990,7 +990,7 @@ class CalibreDB:
         bd = bd.options(joinedload(Books.data))
         return (bd.filter(Books.id == book_id)
                 .join(ub.ArchivedBook, and_(Books.id == ub.ArchivedBook.book_id,
-                                            int(current_user.id) == ub.ArchivedBook.user_id), isouter=True)
+                                            int(user.id) == ub.ArchivedBook.user_id), isouter=True)
                 .filter(self.common_filters(allow_show_archived, allow_show_hidden=allow_show_hidden)).first())
 
     def get_book_by_uuid(self, book_uuid):
@@ -1061,6 +1061,7 @@ class CalibreDB:
     # Language and content filters for displaying in the UI
     def common_filters(
         self,
+        user=current_user,
         allow_show_archived=False,
         return_all_languages=False,
         viewing_tag_id=None,
@@ -1069,7 +1070,7 @@ class CalibreDB:
     ):
         if not allow_show_archived:
             archived_books = (ub.session.query(ub.ArchivedBook)
-                              .filter(ub.ArchivedBook.user_id == int(current_user.id))
+                              .filter(ub.ArchivedBook.user_id == int(user.id))
                               .filter(ub.ArchivedBook.is_archived.is_(True))
                               .all())
             archived_book_ids = [archived_book.book_id for archived_book in archived_books]
@@ -1079,21 +1080,21 @@ class CalibreDB:
 
         # Per-user hidden books — fork issue #64. allow_show_hidden=True is the
         # /hidden listing's escape hatch (so users can see + unhide).
-        if not allow_show_hidden and not current_user.is_anonymous:
+        if not allow_show_hidden and not user.is_anonymous:
             hidden_books = (ub.session.query(ub.UserHiddenBook)
-                            .filter(ub.UserHiddenBook.user_id == int(current_user.id))
+                            .filter(ub.UserHiddenBook.user_id == int(user.id))
                             .all())
             hidden_book_ids = [h.book_id for h in hidden_books]
             hidden_filter = Books.id.notin_(hidden_book_ids)
         else:
             hidden_filter = true()
 
-        if current_user.filter_language() == "all" or return_all_languages:
+        if user.filter_language() == "all" or return_all_languages:
             lang_filter = true()
         else:
-            lang_filter = Books.languages.any(Languages.lang_code == current_user.filter_language())
-        negtags_list = current_user.list_denied_tags()
-        postags_list = current_user.list_allowed_tags()
+            lang_filter = Books.languages.any(Languages.lang_code == user.filter_language())
+        negtags_list = user.list_denied_tags()
+        postags_list = user.list_allowed_tags()
         neg_content_tags_filter = false() if negtags_list == [''] else Books.tags.any(Tags.name.in_(negtags_list))
 
         # Issue #906: When viewing a specific tag category, include that tag in allowed tags
@@ -1107,11 +1108,11 @@ class CalibreDB:
         pos_content_tags_filter = true() if postags_list == [''] else Books.tags.any(Tags.name.in_(postags_list))
         if self.config.config_restricted_column:
             try:
-                pos_cc_list = current_user.allowed_column_value.split(',')
+                pos_cc_list = user.allowed_column_value.split(',')
                 pos_content_cc_filter = true() if pos_cc_list == [''] else \
                     getattr(Books, 'custom_column_' + str(self.config.config_restricted_column)). \
                     any(cc_classes[self.config.config_restricted_column].value.in_(pos_cc_list))
-                neg_cc_list = current_user.denied_column_value.split(',')
+                neg_cc_list = user.denied_column_value.split(',')
                 neg_content_cc_filter = false() if neg_cc_list == [''] else \
                     getattr(Books, 'custom_column_' + str(self.config.config_restricted_column)). \
                     any(cc_classes[self.config.config_restricted_column].value.in_(neg_cc_list))
@@ -1133,14 +1134,14 @@ class CalibreDB:
                     pos_content_cc_filter, ~neg_content_cc_filter, archived_filter,
                     hidden_filter, extra_filter)
 
-    def generate_linked_query(self, config_read_column, database):
+    def generate_linked_query(self, config_read_column, database, user=current_user):
         # Safety: session can be briefly None during DB reconnects
         self.ensure_session()
         if not config_read_column:
             query = (self.session.query(database, ub.ArchivedBook.is_archived, ub.ReadBook.read_status)
                      .select_from(Books)
                      .outerjoin(ub.ReadBook,
-                                and_(ub.ReadBook.user_id == int(current_user.id), ub.ReadBook.book_id == Books.id)))
+                                and_(ub.ReadBook.user_id == int(user.id), ub.ReadBook.book_id == Books.id)))
         else:
             try:
                 read_column = cc_classes[config_read_column]
@@ -1152,7 +1153,7 @@ class CalibreDB:
                 # Skip linking read column and return None instead of read status
                 query = self.session.query(database, None, ub.ArchivedBook.is_archived)
         return query.outerjoin(ub.ArchivedBook, and_(Books.id == ub.ArchivedBook.book_id,
-                                                     int(current_user.id) == ub.ArchivedBook.user_id))
+                                                     int(user.id) == ub.ArchivedBook.user_id))
 
     @staticmethod
     def get_checkbox_sorted(inputlist, state, offset, limit, order, combo=False):
@@ -1175,19 +1176,19 @@ class CalibreDB:
 
     # Fill indexpage with all requested data from database
     def fill_indexpage(self, page, pagesize, database, db_filter, order,
-                       join_archive_read=False, config_read_column=0, *join, **kwargs):
+                       join_archive_read=False, config_read_column=0, user=current_user, *join, **kwargs):
         self.ensure_session()
         return self.fill_indexpage_with_archived_books(page, database, pagesize, db_filter, order, False,
-                                                       join_archive_read, config_read_column, *join, **kwargs)
+                                                       join_archive_read, config_read_column, user=user, *join, **kwargs)
 
     def fill_indexpage_with_archived_books(self, page, database, pagesize, db_filter, order, allow_show_archived,
-                                           join_archive_read, config_read_column, *join, **kwargs):
+                                           join_archive_read, config_read_column, user=current_user, *join, **kwargs):
         self.ensure_session()
         viewing_tag_id = kwargs.get('viewing_tag_id')
         allow_show_hidden = kwargs.get('allow_show_hidden', False)
         extra_filter = kwargs.get('extra_filter')
         pagesize = pagesize or self.config.config_books_per_page
-        if current_user.show_detail_random():
+        if user.show_detail_random():
             random_query = self.generate_linked_query(config_read_column, database)
             # Eagerly load template relationships to prevent detached lazy-load
             # failures if another request tears down the shared scoped session.

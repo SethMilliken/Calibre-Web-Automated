@@ -562,7 +562,7 @@ def get_book_ids_for_magic_shelf(shelf_id, sort_order=None, sort_param='stored',
                     log.debug(f"Cache expires: {cache.created_at + timedelta(minutes=30)}")
                     return cache.book_ids, cache.total_count
 
-        query, magic_shelf = build_book_query_for_magic_shelf(shelf_id, sort_order=sort_order)
+        query, magic_shelf = build_book_query_for_magic_shelf(shelf_id, sort_order=sort_order, user=user)
         if query is None:
             return [], 0
 
@@ -591,7 +591,7 @@ def get_book_ids_for_magic_shelf(shelf_id, sort_order=None, sort_param='stored',
         return [], 0
 
 
-def build_book_query_for_magic_shelf(shelf_id, sort_order=None, extra_filter=None):
+def build_book_query_for_magic_shelf(shelf_id, sort_order=None, extra_filter=None, user=current_user):
     """Build a Books query for a magic shelf.
 
     Returns:
@@ -611,13 +611,15 @@ def build_book_query_for_magic_shelf(shelf_id, sort_order=None, extra_filter=Non
         log.debug(f"No rules defined for magic shelf {shelf_id}")
         return None, magic_shelf
 
-    query_filter = build_query_from_rules(rules, user_id=magic_shelf.user_id)
+    query_filter = build_query_from_rules(rules, user.id)
     if query_filter is None:
         log.warning(f"Failed to build query filter for magic shelf {shelf_id}")
         return None, magic_shelf
 
     cdb = db.CalibreDB(init=True)
-    query = cdb.session.query(db.Books).filter(query_filter).filter(cdb.common_filters(extra_filter=extra_filter))
+    common_filters = cdb.common_filters(user=user, extra_filter=extra_filter)
+    query = cdb.session.query(db.Books).filter(query_filter).filter(common_filters)
+
     # Fork-specific (#38, backport of CWA #1233): outerjoin Series when the
     # sort references Series-derived columns. Without this, ORDER BY
     # series.name produces empty results.
