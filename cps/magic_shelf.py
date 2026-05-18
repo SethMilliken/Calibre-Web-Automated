@@ -545,6 +545,7 @@ def build_query_from_rules(rules_json, user_id=None):
 def get_book_ids_for_magic_shelf(shelf_id, sort_order=None, sort_param='stored', bypass_cache=False, user=current_user):
     """Return ordered book IDs for a magic shelf without loading book objects."""
     try:
+        log.debug(f"get_book_ids_for_magic_shelf: cache={bypass_cache} auth={user.is_authenticated}")
         if not bypass_cache and user.is_authenticated:
             cache = ub.session.query(ub.MagicShelfCache).filter_by(
                 shelf_id=shelf_id,
@@ -558,6 +559,7 @@ def get_book_ids_for_magic_shelf(shelf_id, sort_order=None, sort_param='stored',
                 is_expired = (datetime.now(timezone.utc) - created_at) > timedelta(minutes=30)
                 if not is_expired:
                     log.debug(f"Magic shelf {shelf_id} ID list served from cache ({cache.total_count} books)")
+                    log.debug(f"Cache expires: {cache.created_at + timedelta(minutes=30)}")
                     return cache.book_ids, cache.total_count
 
         query, magic_shelf = build_book_query_for_magic_shelf(shelf_id, sort_order=sort_order)
@@ -657,6 +659,7 @@ def get_books_for_magic_shelf(shelf_id, page=1, page_size=None, sort_order=None,
             bypass_cache=bypass_cache,
             user=user,
         )
+        log.debug(f"got ids: len={len(all_ids)} count={total_count}")
 
         # Apply pagination to the list of IDs we just fetched
         if page_size is not None and page_size > 0:

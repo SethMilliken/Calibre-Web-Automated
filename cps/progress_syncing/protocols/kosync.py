@@ -52,7 +52,7 @@ from werkzeug.security import check_password_hash
 from sqlalchemy import func, desc
 from sqlalchemy.exc import SQLAlchemyError
 
-from ... import logger, ub, csrf, config, constants, services, usermanagement
+from ... import logger, db, ub, csrf, config, constants, services, usermanagement
 from ...render_template import render_title_template
 from ..models import KOSyncProgress
 from ..settings import is_koreader_sync_enabled
@@ -969,16 +969,17 @@ def get_shelf(shelf_name: str):
         books = []
 
         magic_shelves = MagicShelf.get_visible_magic_shelves_for_user(user.id)
-        for mshelf in magic_shelves:
-            if mshelf.name == shelf_name:
-                log.debug(f"Found match: {mshelf}")
+        for magic_shelf in magic_shelves:
+            if magic_shelf.name == shelf_name:
+                log.debug(f"Found match: {magic_shelf}")
                 res, count = MagicShelf.get_books_for_magic_shelf(
-                    mshelf.id,
-                    user=user,
+                    magic_shelf.id,
                     sort_param="seriesasc",
-                    bypass_cache=False
+                    sort_order=db.Books.series_index.asc(),
+                    bypass_cache=True,
+                    user=user,
                 )
-                log.debug(f"Using MagicShelf books: {len(res)} {count}")
+                log.debug(f"Using MagicShelf books: len={len(res)} count={count}")
                 books = res
 
         if len(books) == 0:
