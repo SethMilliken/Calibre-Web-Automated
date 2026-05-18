@@ -132,6 +132,7 @@ def _opds_template_helpers():
         '_is_real_pubdate': _is_real_pubdate,
     }
 
+
 OPDS_ROOT_ORDER_DEFAULT = [
     'books',
     'hot',
@@ -449,7 +450,7 @@ def track_opds_access():
         from scripts.cwa_db import CWA_DB
         from .cw_login import current_user
         import json as json_lib
-        
+
         # Only track if user is authenticated
         if current_user and hasattr(current_user, 'is_authenticated') and current_user.is_authenticated:
             cwa_db = CWA_DB()
@@ -881,7 +882,7 @@ def feed_shelf(book_id):
     # delete shelf entries where book is not existent anymore, can happen if book is deleted outside calibre-web
     wrong_entries = calibre_db.session.query(ub.BookShelf) \
         .join(db.Books, ub.BookShelf.book_id == db.Books.id, isouter=True) \
-        .filter(db.Books.id == None).all()
+        .filter(db.Books.id is None).all()
     for entry in wrong_entries:
         log.info('Not existing book {} in {} deleted'.format(entry.book_id, shelf))
         try:
@@ -1033,7 +1034,6 @@ def feed_search(term):
         return render_xml_template('feed.xml', searchterm=term, entries=entries, pagination=pagination)
     else:
         return render_xml_template('feed.xml', searchterm="")
-
 
 
 # Fork issue #183 / @droM4X: ``/opds/<anything-not-a-real-route>`` used
