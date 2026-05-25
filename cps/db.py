@@ -1061,12 +1061,12 @@ class CalibreDB:
     # Language and content filters for displaying in the UI
     def common_filters(
         self,
-        user=current_user,
         allow_show_archived=False,
         return_all_languages=False,
         viewing_tag_id=None,
         allow_show_hidden=False,
         extra_filter=None,
+        user=current_user,
     ):
         if not allow_show_archived:
             archived_books = (ub.session.query(ub.ArchivedBook)
@@ -1095,6 +1095,7 @@ class CalibreDB:
             lang_filter = Books.languages.any(Languages.lang_code == user.filter_language())
         negtags_list = user.list_denied_tags()
         postags_list = user.list_allowed_tags()
+        # log.debug(f"negtags: {negtags_list} postags: {postags_list} user_id: {user.id}")
         neg_content_tags_filter = false() if negtags_list == [''] else Books.tags.any(Tags.name.in_(negtags_list))
 
         # Issue #906: When viewing a specific tag category, include that tag in allowed tags
@@ -1176,19 +1177,19 @@ class CalibreDB:
 
     # Fill indexpage with all requested data from database
     def fill_indexpage(self, page, pagesize, database, db_filter, order,
-                       join_archive_read=False, config_read_column=0, user=current_user, *join, **kwargs):
+                       join_archive_read=False, config_read_column=0, *join, **kwargs):
         self.ensure_session()
         return self.fill_indexpage_with_archived_books(page, database, pagesize, db_filter, order, False,
-                                                       join_archive_read, config_read_column, user=user, *join, **kwargs)
+                                                       join_archive_read, config_read_column, *join, **kwargs)
 
     def fill_indexpage_with_archived_books(self, page, database, pagesize, db_filter, order, allow_show_archived,
-                                           join_archive_read, config_read_column, user=current_user, *join, **kwargs):
+                                           join_archive_read, config_read_column, *join, **kwargs):
         self.ensure_session()
         viewing_tag_id = kwargs.get('viewing_tag_id')
         allow_show_hidden = kwargs.get('allow_show_hidden', False)
         extra_filter = kwargs.get('extra_filter')
         pagesize = pagesize or self.config.config_books_per_page
-        if user.show_detail_random():
+        if current_user.show_detail_random():
             random_query = self.generate_linked_query(config_read_column, database)
             # Eagerly load template relationships to prevent detached lazy-load
             # failures if another request tears down the shared scoped session.

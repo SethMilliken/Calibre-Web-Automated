@@ -619,6 +619,7 @@ def build_book_query_for_magic_shelf(shelf_id, sort_order=None, extra_filter=Non
     cdb = db.CalibreDB(init=True)
     common_filters = cdb.common_filters(user=user, extra_filter=extra_filter)
     query = cdb.session.query(db.Books).filter(query_filter).filter(common_filters)
+    # log.debug(f"build_book_query_for_magic_shelf query: {query}")
 
     # Fork-specific (#38, backport of CWA #1233): outerjoin Series when the
     # sort references Series-derived columns. Without this, ORDER BY
