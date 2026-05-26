@@ -1330,6 +1330,63 @@ class CalibreDB:
                 return authors_ordered
         return entries
 
+    def order_authors_alt(self, entries, list_return=False, combined=False):
+        self.ensure_session()
+        all_authors = self.session.query(Authors).order_by(Authors.sort)
+        for entry in entries:
+            book = entry.Books if combined else entry
+            ids = [a.id for a in book.authors]
+
+            sort_authors = [a for a in map(strip_whitespaces, getattr(book, 'author_sort', '')).split('&') if a.strip()]
+
+            authors_ordered = list()
+
+            for sort_author in sort_authors:
+                results = all_authors.filter(Authors.sort == sort_author).all()
+                if not results:
+                    log.debug("order_authors: updating authors_sort: no results for Books instance: '{}'".format(
+                        book.title))
+                    results = self.update_author_sort_for_book(book)
+                    if not results:
+                        log.error("order_authors: Author '{}' not found for Books instance: '{}'".format(
+                            sort_author, book.title))
+                        # error = True
+                        break
+                for result in results:
+                    if result.id in ids:
+                        authors_ordered.append(result)
+                        ids.remove(result.id)
+
+            for author_id in ids:
+                result = all_authors.filter(Authors.id == author_id).first()
+                authors_ordered.append(result)
+            if list_return:
+                if combined:
+                    book.authors = authors_ordered
+                else:
+                    book.ordered_authors = authors_ordered
+            else:
+                return authors_ordered
+        return entries
+
+    # Rebuild the author_sort field from the authors relationship,
+    # fixing any out-of-sync authors.sort values along the way.
+    def update_author_sort_for_book(self, book):
+        if book.authors:
+            self.ensure_session()
+            from .helper import get_sorted_author
+            for author in book.authors:
+                sorted_name = get_sorted_author(author.name)
+                if sorted_name != author.sort:
+                    log.debug("update_author_sort_for_book: sort value for Authors instance '{}' updated from '{}' to '{}'".format(
+                        author.name, author.sort, sorted_name))
+                    author.sort = sorted_name
+            book.author_sort = " & ".join(a.sort for a in book.authors)
+            log.debug("update_authorsort_for_book: author_sort value for Books instance '{}' updated to '{}'".format(
+                book.title, book.author_sort))
+            self.session.commit()
+            return book.authors
+
     def get_typeahead(self, database, query, replace=('', ''), tag_filter=true()):
         self.ensure_session()
         query = query or ''
