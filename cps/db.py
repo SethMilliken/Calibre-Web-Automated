@@ -1273,31 +1273,20 @@ class CalibreDB:
         # entries without raising.
         self.ensure_session()
         for entry in entries:
-            if combined:
-                book = entry.Books
-            else:
-                book = entry
+            book = entry.Books if combined else entry
 
-            sort_authors = (getattr(book, 'author_sort', None) or '').split('&')
-            authors_list = [a for a in (getattr(book, 'authors', None) or [])
-                            if a is not None]
+            sort_authors = [a for a in map(strip_whitespaces, getattr(book, 'author_sort', '')).split('&') if a.strip()]
 
-            authors_by_sort = {}
-            authors_by_id = {}
-            for a in authors_list:
-                if a.sort:
-                    authors_by_sort[a.sort] = a
-                if a.id is not None:
-                    authors_by_id[a.id] = a
+            authors_list = [a for a in getattr(book, 'authors', None) if a]
 
-            authors_ordered = []
+            authors_by_sort = dict([(a.sort, a) for a in authors_list])
+            authors_by_id = dict([(a.id, a) for a in authors_list])
+
+            authors_ordered = list()
             ids_remaining = list(authors_by_id.keys())
-            for auth in sort_authors:
-                auth = strip_whitespaces(auth)
-                # Skip empty author strings to prevent spurious lookups.
-                if not auth:
-                    continue
-                ordered = authors_by_sort.get(auth)
+
+            for sort_author in sort_authors:
+                ordered = authors_by_sort.get(sort_author)
                 if ordered is None:
                     # Books.author_sort drifted from Authors.sort. Warn
                     # once per process per drifted sort string so the log
@@ -1305,18 +1294,17 @@ class CalibreDB:
                     # still appears in the book via the id-fallback below
                     # (continue, not break, so other authors on this same
                     # book that DO have a valid sort still get ordered).
-                    if auth not in _AUTHOR_SORT_DRIFT_WARNED:
-                        _AUTHOR_SORT_DRIFT_WARNED.add(auth)
+                    if sort_author not in _AUTHOR_SORT_DRIFT_WARNED:
+                        _AUTHOR_SORT_DRIFT_WARNED.add(sort_author)
                         log.warning(
                             "Author sort '%s' from Books.author_sort has no "
                             "match in linked authors. Falling back to "
                             "Authors.id order for this author. To fix: edit "
                             "the author in the admin UI so Authors.sort "
-                            "matches.", auth)
+                            "matches.", sort_author)
                     continue
                 authors_ordered.append(ordered)
-                if ordered.id in ids_remaining:
-                    ids_remaining.remove(ordered.id)
+                ids_remaining.discard(ordered.id)
 
             # Append any authors that weren't placed by the sort pass —
             # preserves the pre-fix invariant that every linked Author
@@ -1337,7 +1325,7 @@ class CalibreDB:
                 if combined:
                     book.authors = authors_ordered
                 else:
-                    entry.ordered_authors = authors_ordered
+                    book.ordered_authors = authors_ordered
             else:
                 return authors_ordered
         return entries
