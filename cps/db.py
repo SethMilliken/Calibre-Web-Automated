@@ -300,13 +300,21 @@ class Authors(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(collation='NOCASE'), unique=True, nullable=False)
     sort = Column(String(collation='NOCASE'))
+    # sort = Authors.sortable(name)
     link = Column(String, nullable=False, default="")
 
-    def __init__(self, name, sort, link=""):
+    def __init__(self, name, link=""):
         super().__init__()
         self.name = name
-        self.sort = sort
         self.link = link
+
+    # def sort(self):
+    #     from .helper import get_sorted_author
+    #     get_sorted_author(self.name)
+
+    @staticmethod
+    def sortable(name):
+        return name
 
     def get(self):
         return self.name
@@ -1257,7 +1265,7 @@ class CalibreDB:
         except Exception as ex:
             log.error_or_exception(ex)
         # display authors in right order
-        entries = self.order_authors(entries, True, join_archive_read)
+        entries = self.order_authors(entries, list_return=True, combined=join_archive_read)
         return entries, randm, pagination
 
     # Orders all Authors in the list according to authors sort
@@ -1275,9 +1283,13 @@ class CalibreDB:
         for entry in entries:
             book = entry.Books if combined else entry
 
-            sort_authors = [a for a in map(strip_whitespaces, getattr(book, 'author_sort', '')).split('&') if a.strip()]
+            sort_authors = [a for a in map(strip_whitespaces, getattr(book, 'author_sort', '').split('&')) if a.strip()]
 
             authors_list = [a for a in getattr(book, 'authors', None) if a]
+
+            if len(authors_list) > 1:
+                log.debug(authors_list)
+                log.debug(sort_authors)
 
             authors_by_sort = dict([(a.sort, a) for a in authors_list])
             authors_by_id = dict([(a.id, a) for a in authors_list])
@@ -1285,6 +1297,7 @@ class CalibreDB:
             authors_ordered = list()
             ids_remaining = list(authors_by_id.keys())
 
+            is_sort_drift = False
             for sort_author in sort_authors:
                 ordered = authors_by_sort.get(sort_author)
                 if ordered is None:
@@ -1295,6 +1308,7 @@ class CalibreDB:
                     # (continue, not break, so other authors on this same
                     # book that DO have a valid sort still get ordered).
                     if sort_author not in _AUTHOR_SORT_DRIFT_WARNED:
+                        is_sort_drift = True
                         _AUTHOR_SORT_DRIFT_WARNED.add(sort_author)
                         log.warning(
                             "Author sort '%s' from Books.author_sort has no "
@@ -1304,7 +1318,11 @@ class CalibreDB:
                             "matches.", sort_author)
                     continue
                 authors_ordered.append(ordered)
-                ids_remaining.discard(ordered.id)
+                if ordered.id in ids_remaining:
+                    ids_remaining.remove(ordered.id)
+            if is_sort_drift:
+                log.warning("Fixing sort drift for: %s", book.title)
+                self.update_author_sort_for_book(book)
 
             # Append any authors that weren't placed by the sort pass —
             # preserves the pre-fix invariant that every linked Author
